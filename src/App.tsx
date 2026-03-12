@@ -2011,6 +2011,29 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
           </label>
         </div>
 
+        {/* Save Photo Button (only shows if avatar changed from user.avatar AND not in full edit mode) */}
+        {!isEditing && avatar !== user?.avatar && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center gap-2"
+          >
+            <p className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Foto alterada</p>
+            <Button 
+              onClick={() => onUpdate({ ...user!, avatar })} 
+              className="px-6 py-2 h-auto text-xs"
+            >
+              Salvar Nova Foto
+            </Button>
+            <button 
+              onClick={() => setAvatar(user?.avatar || "")} 
+              className="text-[10px] text-zinc-400 font-bold hover:underline"
+            >
+              Descartar
+            </button>
+          </motion.div>
+        )}
+
         {isEditing ? (
           <div className="w-full max-w-xs space-y-4">
             <Input label="Nome" value={name} onChange={setName} />
