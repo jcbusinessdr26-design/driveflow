@@ -289,13 +289,24 @@ export default function App() {
   }, []);
 
   const checkUser = async () => {
-    setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      await fetchAllData(session.user.id);
-      setScreen("main");
+    try {
+      setLoading(true);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
+
+      if (session) {
+        await fetchAllData(session.user.id);
+        setScreen("main");
+      } else {
+        setScreen("auth");
+      }
+    } catch (err) {
+      console.error("Error checking user session:", err);
+      setScreen("auth");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchAllData = async (userId: string) => {
@@ -314,7 +325,7 @@ export default function App() {
         monthlyGoal: Number(profile.monthly_goal),
         vehicleType: profile.vehicle_type as any,
         vehicleName: profile.vehicle_name,
-        license_plate: profile.license_plate,
+        licensePlate: profile.license_plate, // Fixed mapping
         weeklyRent: Number(profile.weekly_rent)
       });
     }
@@ -460,8 +471,20 @@ export default function App() {
 
     let autoExpenses = 0;
     if (user?.vehicleType === "Alugado" && user.weeklyRent) {
-      const days = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
-      autoExpenses = (user.weeklyRent / 7) * days;
+      if (filter === "mês") {
+        // Regra: (semanal * 52) / 12 para média mensal exata
+        autoExpenses = (user.weeklyRent * 52) / 12;
+      } else if (filter === "trimestre") {
+        autoExpenses = ((user.weeklyRent * 52) / 12) * 3;
+      } else if (filter === "semestre") {
+        autoExpenses = ((user.weeklyRent * 52) / 12) * 6;
+      } else if (filter === "anual") {
+        autoExpenses = ((user.weeklyRent * 52) / 12) * 12;
+      } else {
+        // Pró-rata diário para outros filtros (semana, dia, personalizado)
+        const days = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
+        autoExpenses = (user.weeklyRent / 7) * days;
+      }
     }
 
     const netProfit = totalEarned - totalFuel - totalFood - totalOther - autoExpenses;
