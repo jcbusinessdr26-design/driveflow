@@ -240,8 +240,7 @@ const Input = ({
   label?: string;
   type?: string;
   value: string | number;
-  onChange: (val: any) => void;
-  placeholder?: string;
+  onChange: (val: string) => void; placeholder?: string;
   prefix?: string;
 }) => (
   <div className="flex flex-col gap-1.5 w-full">
@@ -273,6 +272,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "add" | "maintenance" | "profile">("home");
 
   const [earnings, setEarnings] = useState<Earning[]>([]);
+  const [editingEarning, setEditingEarning] = useState<Earning | null>(null);
   const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
 
   const [maintenanceAlertsEnabled, setMaintenanceAlertsEnabled] = useState<boolean>(true);
@@ -292,7 +292,7 @@ export default function App() {
     try {
       setLoading(true);
       const { data: { session }, error } = await supabase.auth.getSession();
-      
+
       if (error) throw error;
 
       if (session) {
@@ -325,8 +325,10 @@ export default function App() {
         monthlyGoal: Number(profile.monthly_goal),
         vehicleType: profile.vehicle_type as any,
         vehicleName: profile.vehicle_name,
-        licensePlate: profile.license_plate, // Fixed mapping
-        weeklyRent: Number(profile.weekly_rent)
+        licensePlate: profile.license_plate,
+        weeklyRent: profile.weekly_rent ? Number(profile.weekly_rent) : undefined,
+        ipva: profile.ipva ? Number(profile.ipva) : 0,
+        fines: profile.fines ? Number(profile.fines) : 0,
       });
     }
 
@@ -400,7 +402,9 @@ export default function App() {
       vehicle_type: profile.vehicleType,
       vehicle_name: profile.vehicleName,
       license_plate: profile.licensePlate,
-      weekly_rent: profile.weeklyRent
+      weekly_rent: profile.weeklyRent,
+      ipva: profile.ipva,
+      fines: profile.fines
     });
 
     if (!error) {
@@ -470,26 +474,43 @@ export default function App() {
     const totalKm = filteredEarnings.reduce((acc, curr) => acc + (curr.km || 0), 0);
 
     let autoExpenses = 0;
+
+    let autoExpensesDays = 0;
+
     if (user?.vehicleType === "Alugado" && user.weeklyRent) {
-      if (filter === "mês") {
-        // Regra: (semanal * 52) / 12 para média mensal exata
-        autoExpenses = (user.weeklyRent * 52) / 12;
-      } else if (filter === "trimestre") {
-        autoExpenses = ((user.weeklyRent * 52) / 12) * 3;
-      } else if (filter === "semestre") {
-        autoExpenses = ((user.weeklyRent * 52) / 12) * 6;
-      } else if (filter === "anual") {
-        autoExpenses = ((user.weeklyRent * 52) / 12) * 12;
-      } else {
-        // Pró-rata diário para outros filtros (semana, dia, personalizado)
-        const days = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
-        autoExpenses = (user.weeklyRent / 7) * days;
-      }
+      const weekly = Number(user.weeklyRent);
+      const now = new Date();
+      // Cap at today if we're in the middle of the period
+      const effectiveEnd = isWithinInterval(now, { start: filterRange.start, end: filterRange.end }) 
+        ? endOfDay(now) 
+        : filterRange.end;
+      
+      const days = differenceInCalendarDays(effectiveEnd, filterRange.start) + 1;
+      // Also ensure we don't show negative days if start is in future
+      autoExpensesDays = Math.max(0, days);
+      autoExpenses = (weekly / 7) * autoExpensesDays;
+    }
+
+    if (user?.vehicleType === "Próprio") {
+      const ipva = Number(user.ipva || 0);
+      const fines = Number(user.fines || 0);
+      const now = new Date();
+      const yearDays = 365;
+      
+      const effectiveEnd = isWithinInterval(now, { start: filterRange.start, end: filterRange.end }) 
+        ? endOfDay(now) 
+        : filterRange.end;
+        
+      const filterDays = differenceInCalendarDays(effectiveEnd, filterRange.start) + 1;
+      autoExpensesDays = Math.max(0, filterDays);
+      
+      autoExpenses = (ipva / yearDays) * autoExpensesDays;
+      autoExpenses += fines;
     }
 
     const netProfit = totalEarned - totalFuel - totalFood - totalOther - autoExpenses;
 
-    return { totalEarned, totalFuel, totalFood, totalOther, totalKm, netProfit, autoExpenses };
+    return { totalEarned, totalFuel, totalFood, totalOther, totalKm, netProfit, autoExpenses, autoExpensesDays };
   }, [filteredEarnings, user, filter, customRange, filterRange]);
 
   const hasTodayMaintenance = useMemo(() => {
@@ -533,7 +554,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow</h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v2.1</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -566,6 +587,7 @@ export default function App() {
                       user={user}
                       stats={stats}
                       filter={filter}
+                      filterRange={filterRange}
                       setFilter={setFilter}
                       earnings={filteredEarnings}
                       goal={user?.monthlyGoal || 0}
@@ -578,43 +600,82 @@ export default function App() {
                       hasTodayMaintenance={hasTodayMaintenance}
                       notificationAcknowledged={notificationAcknowledged}
                       onAcknowledge={() => setNotificationAcknowledged(true)}
+                      onEditEarning={(e) => {
+                        setEditingEarning(e);
+                        setActiveTab("add");
+                      }}
+                      onDeleteEarning={async (id) => {
+                        const { error } = await supabase
+                          .from('earnings')
+                          .delete()
+                          .eq('id', id);
+                        if (!error) {
+                          setEarnings(earnings.filter(e => e.id !== id));
+                        }
+                      }}
                     />
                   )}
                   {activeTab === "add" && (
                     <AddEarningScreen
                       platforms={user?.platforms || []}
+                      editingEarning={editingEarning}
                       onAdd={async (e) => {
                         const { data: { session } } = await supabase.auth.getSession();
                         if (!session) return;
 
-                        const { data: newEarning, error } = await supabase
-                          .from('earnings')
-                          .insert({
-                            user_id: session.user.id,
-                            date: e.date,
-                            platform_details: e.platformDetails,
-                            total_earned: e.totalEarned,
-                            fuel_cost: e.fuelCost,
-                            food_cost: e.foodCost || 0,
-                            other_cost: e.otherCost || 0,
-                            km: e.km || 0
-                          })
-                          .select()
-                          .single();
+                        if (editingEarning) {
+                          const { error } = await supabase
+                            .from('earnings')
+                            .update({
+                              date: e.date,
+                              platform_details: e.platformDetails,
+                              total_earned: e.totalEarned,
+                              fuel_cost: e.fuelCost,
+                              food_cost: e.foodCost || 0,
+                              other_cost: e.otherCost || 0,
+                              km: e.km || 0
+                            })
+                            .eq('id', editingEarning.id);
 
-                        if (!error && newEarning) {
-                          setEarnings([{
-                            id: newEarning.id,
-                            date: newEarning.date,
-                            platformDetails: newEarning.platform_details,
-                            totalEarned: Number(newEarning.total_earned),
-                            fuelCost: Number(newEarning.fuel_cost),
-                            foodCost: Number(newEarning.food_cost),
-                            otherCost: Number(newEarning.other_cost),
-                            km: Number(newEarning.km)
-                          }, ...earnings]);
-                          setActiveTab("home");
+                          if (!error) {
+                            setEarnings(earnings.map(item => item.id === editingEarning.id ? { ...e, id: editingEarning.id } : item));
+                            setEditingEarning(null);
+                            setActiveTab("home");
+                          }
+                        } else {
+                          const { data: newEarning, error } = await supabase
+                            .from('earnings')
+                            .insert({
+                              user_id: session.user.id,
+                              date: e.date,
+                              platform_details: e.platformDetails,
+                              total_earned: e.totalEarned,
+                              fuel_cost: e.fuelCost,
+                              food_cost: e.foodCost || 0,
+                              other_cost: e.otherCost || 0,
+                              km: e.km || 0
+                            })
+                            .select()
+                            .single();
+
+                          if (!error && newEarning) {
+                            setEarnings([{
+                              id: newEarning.id,
+                              date: newEarning.date,
+                              platformDetails: newEarning.platform_details,
+                              totalEarned: Number(newEarning.total_earned),
+                              fuelCost: Number(newEarning.fuel_cost),
+                              foodCost: Number(newEarning.food_cost),
+                              otherCost: Number(newEarning.other_cost),
+                              km: Number(newEarning.km)
+                            }, ...earnings]);
+                            setActiveTab("home");
+                          }
                         }
+                      }}
+                      onCancel={() => {
+                        setEditingEarning(null);
+                        setActiveTab("home");
                       }}
                     />
                   )}
@@ -702,7 +763,9 @@ export default function App() {
                             vehicle_type: updated.vehicleType,
                             vehicle_name: updated.vehicleName,
                             license_plate: updated.licensePlate,
-                            weekly_rent: updated.weeklyRent
+                            weekly_rent: updated.weeklyRent,
+                            ipva: updated.ipva,
+                            fines: updated.fines
                           })
                           .eq('id', session.user.id);
 
@@ -739,6 +802,7 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const handleAuth = async () => {
     setLoading(true);
@@ -787,6 +851,24 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         )}
         <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" />
         <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+
+        <div className="flex items-center gap-2 px-1 pb-1">
+          <button
+            onClick={() => setRememberMe(!rememberMe)}
+            className={cn(
+              "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all",
+              rememberMe ? "bg-blue-600 border-blue-600" : "bg-white border-zinc-200"
+            )}
+          >
+            {rememberMe && <Check className="w-3.5 h-3.5 text-white" strokeWidth={4} />}
+          </button>
+          <span 
+            className="text-[10px] font-black text-zinc-500 uppercase tracking-widest cursor-pointer select-none" 
+            onClick={() => setRememberMe(!rememberMe)}
+          >
+            Manter conectado
+          </span>
+        </div>
 
         <Button
           onClick={handleAuth}
@@ -993,6 +1075,15 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
               </p>
             </motion.div>
           )}
+          
+          {vehicleType === "Próprio" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" />
+              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" />
+              <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} />
+              <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} />
+            </motion.div>
+          )}
 
           <div className="pt-4 flex gap-3">
             <Button onClick={() => setStep(3)} variant="secondary" className="flex-1">Voltar</Button>
@@ -1005,7 +1096,9 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
                 vehicleType,
                 vehicleName,
                 licensePlate,
-                weeklyRent: vehicleType === "Alugado" ? Number(weeklyRent) : undefined
+                weeklyRent: vehicleType === "Alugado" ? Number(weeklyRent) : undefined,
+                ipva: vehicleType === "Próprio" ? Number(ipva) : undefined,
+                fines: vehicleType === "Próprio" ? Number(fines) : undefined
               })}
               className="flex-1"
             >
@@ -1026,6 +1119,7 @@ function HomeScreen({
   earnings,
   goal,
   customRange,
+  filterRange,
   setCustomRange,
   selectedMonth,
   setSelectedMonth,
@@ -1033,7 +1127,9 @@ function HomeScreen({
   setSelectedYear,
   hasTodayMaintenance,
   notificationAcknowledged,
-  onAcknowledge
+  onAcknowledge,
+  onEditEarning,
+  onDeleteEarning
 }: {
   user: UserProfile | null;
   stats: any;
@@ -1042,6 +1138,7 @@ function HomeScreen({
   earnings: Earning[];
   goal: number;
   customRange: { start: string; end: string };
+  filterRange: { start: Date; end: Date };
   setCustomRange: (range: { start: string; end: string }) => void;
   selectedMonth: number;
   setSelectedMonth: (m: number) => void;
@@ -1050,9 +1147,12 @@ function HomeScreen({
   hasTodayMaintenance: boolean;
   notificationAcknowledged: boolean;
   onAcknowledge: () => void;
+  onEditEarning: (e: Earning) => void;
+  onDeleteEarning: (id: string) => void;
 }) {
-  const progress = Math.min((stats.netProfit / goal) * 100, 100);
-
+  const progress = goal > 0
+    ? Math.min((stats.netProfit / goal) * 100, 100)
+    : 0;
   const months = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
@@ -1266,6 +1366,7 @@ function HomeScreen({
                             filter === "anual" ? "Anual" : "Período"
                   })`
                   : "Custos Fixos (IPVA/Multas)"}
+                <span className="ml-1 text-[9px] opacity-70">({stats.autoExpensesDays} {stats.autoExpensesDays === 1 ? "dia" : "dias"})</span>
               </span>
             </div>
             <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -1277,7 +1378,7 @@ function HomeScreen({
       <Card className="p-0 pt-6 border-zinc-100 shadow-sm">
         <div className="px-6 mb-4 flex justify-between items-center">
           <div>
-            <h3 className="text-sm font-bold text-zinc-900">Desempenho do Período</h3>
+            <h3 className="text-sm font-bold text-zinc-900">Dashboard</h3>
             <p className="text-[10px] text-zinc-500 font-medium">
               Ganhos vs Gastos ({
                 {
@@ -1374,13 +1475,17 @@ function HomeScreen({
           {earnings.length === 0 ? (
             <p className="text-center py-8 text-zinc-500 text-sm">Nenhum lançamento encontrado.</p>
           ) : (
-            earnings.map(e => {
-              const platforms = e.platformDetails || [];
-              const totalExpenses = e.fuelCost + (e.foodCost || 0) + (e.otherCost || 0);
-              const netProfit = e.totalEarned - totalExpenses;
+            earnings.map(item_e => {
+              const platforms = item_e.platformDetails || [];
+              const totalExpenses = item_e.fuelCost + (item_e.foodCost || 0) + (item_e.otherCost || 0);
+              const netProfit = item_e.totalEarned - totalExpenses;
+
               return (
-                <div key={e.id} className="bg-white border border-zinc-100 rounded-3xl shadow-sm overflow-hidden">
-                  {/* Header */}
+                <Card 
+                  key={item_e.id} 
+                  onClick={() => onEditEarning(item_e)}
+                  className="p-0 overflow-hidden border-zinc-100/80 shadow-sm active:scale-[0.99] transition-transform cursor-pointer hover:border-blue-200"
+                >
                   <div className="flex items-center justify-between px-4 pt-4 pb-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="flex -space-x-2 flex-shrink-0">
@@ -1395,8 +1500,8 @@ function HomeScreen({
                           {platforms.map(p => p.name).join(" + ")}
                         </p>
                         <p className="text-[10px] text-zinc-400 font-medium">
-                          {e.date ? format(parseISO(e.date), "dd/MM/yyyy", { locale: ptBR }) : ""}
-                          {e.km ? ` · ${e.km} km` : ""}
+                          {item_e.date ? format(parseISO(item_e.date), "dd/MM/yyyy", { locale: ptBR }) : ""}
+                          {item_e.km ? ` · ${item_e.km} km` : ""}
                         </p>
                       </div>
                     </div>
@@ -1407,6 +1512,27 @@ function HomeScreen({
                       </p>
                       <p className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">LÍQUIDO</p>
                     </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 ml-2">
+                       <button 
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          onEditEarning(item_e);
+                        }} 
+                        className="p-1.5 text-zinc-400 hover:text-blue-500 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          onDeleteEarning(item_e.id);
+                        }} 
+                        className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Expenses row */}
@@ -1414,33 +1540,33 @@ function HomeScreen({
                     <div className="flex items-center gap-3">
                       <div className="text-center">
                         <p className="text-[9px] text-zinc-400 uppercase font-bold">Combustível</p>
-                        <p className="text-[11px] font-black text-rose-500">- R$ {e.fuelCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-[11px] font-black text-rose-500">- R$ {item_e.fuelCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
-                      {(e.foodCost || 0) > 0 && (
+                      {(item_e.foodCost || 0) > 0 && (
                         <>
                           <div className="w-px h-6 bg-zinc-100" />
                           <div className="text-center">
                             <p className="text-[9px] text-zinc-400 uppercase font-bold">Alimentação</p>
-                            <p className="text-[11px] font-black text-rose-500">- R$ {(e.foodCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-[11px] font-black text-rose-500">- R$ {(item_e.foodCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                           </div>
                         </>
                       )}
-                      {(e.otherCost || 0) > 0 && (
+                      {(item_e.otherCost || 0) > 0 && (
                         <>
                           <div className="w-px h-6 bg-zinc-100" />
                           <div className="text-center">
                             <p className="text-[9px] text-zinc-400 uppercase font-bold">Outros</p>
-                            <p className="text-[11px] font-black text-rose-500">- R$ {(e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-[11px] font-black text-rose-500">- R$ {(item_e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                           </div>
                         </>
                       )}
                     </div>
                     <div className="text-center flex-shrink-0">
                       <p className="text-[9px] text-zinc-400 uppercase font-bold">Bruto</p>
-                      <p className="text-[11px] font-black text-zinc-500">R$ {e.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-[11px] font-black text-zinc-500">R$ {item_e.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })
           )}
@@ -1450,14 +1576,40 @@ function HomeScreen({
   );
 }
 
-function AddEarningScreen({ platforms, onAdd }: { platforms: Platform[]; onAdd: (e: Earning) => void }) {
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [amounts, setAmounts] = useState<{ [key: string]: string }>({});
-  const [fuel, setFuel] = useState("");
-  const [food, setFood] = useState("");
-  const [otherCost, setOtherCost] = useState("");
-  const [km, setKm] = useState("");
+function AddEarningScreen({ 
+  platforms: initialPlatforms, 
+  onAdd, 
+  editingEarning,
+  onCancel
+}: { 
+  platforms: Platform[]; 
+  onAdd: (e: Earning) => void;
+  editingEarning: Earning | null;
+  onCancel: () => void;
+}) {
+  const [platforms, setPlatforms] = useState<Platform[]>(initialPlatforms);
+  const [date, setDate] = useState(editingEarning?.date || format(new Date(), "yyyy-MM-dd"));
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
+    editingEarning?.platformDetails.map(p => p.name) || []
+  );
+  const [amounts, setAmounts] = useState<{ [key: string]: string }>(
+    editingEarning?.platformDetails.reduce((acc, p) => ({ ...acc, [p.name]: p.amount.toString() }), {}) || {}
+  );
+  const [fuel, setFuel] = useState(editingEarning?.fuelCost.toString() || "");
+  const [food, setFood] = useState(editingEarning?.foodCost?.toString() || "");
+  const [otherCost, setOtherCost] = useState(editingEarning?.otherCost?.toString() || "");
+  const [km, setKm] = useState(editingEarning?.km?.toString() || "");
+  const [showNewPlatformInput, setShowNewPlatformInput] = useState(false);
+  const [newPlatformName, setNewPlatformName] = useState("");
+
+  const addNewPlatform = () => {
+    if (newPlatformName && !platforms.includes(newPlatformName)) {
+      setPlatforms([...platforms, newPlatformName]);
+      togglePlatform(newPlatformName);
+      setNewPlatformName("");
+      setShowNewPlatformInput(false);
+    }
+  };
 
   const togglePlatform = (p: string) => {
     if (selectedPlatforms.includes(p)) {
@@ -1502,7 +1654,9 @@ function AddEarningScreen({ platforms, onAdd }: { platforms: Platform[]; onAdd: 
       animate={{ opacity: 1, scale: 1 }}
       className="space-y-6 pb-12"
     >
-      <h2 className="text-2xl font-bold tracking-tight">Novo Lançamento</h2>
+      <h2 className="text-2xl font-bold tracking-tight">
+        {editingEarning ? "Editar Lançamento" : "Novo Lançamento"}
+      </h2>
 
       <div className="space-y-6">
         <Input label="Data" type="date" value={date} onChange={setDate} />
@@ -1528,7 +1682,24 @@ function AddEarningScreen({ platforms, onAdd }: { platforms: Platform[]; onAdd: 
                 </button>
               );
             })}
+            
+            {!showNewPlatformInput && (
+              <button
+                onClick={() => setShowNewPlatformInput(true)}
+                className="p-3 rounded-2xl border border-dashed border-zinc-300 text-[10px] font-bold text-zinc-400 flex items-center justify-center gap-2 hover:border-zinc-400 transition-colors"
+              >
+                + Nova Plataforma
+              </button>
+            )}
           </div>
+          
+          {showNewPlatformInput && (
+            <div className="flex gap-2">
+              <Input value={newPlatformName} onChange={(val) => setNewPlatformName(val)} placeholder="Nome do App" />
+              <Button onClick={addNewPlatform} className="px-4 py-2 h-auto text-xs">Add</Button>
+              <Button onClick={() => setShowNewPlatformInput(false)} variant="ghost" className="px-4 py-2 h-auto text-xs">X</Button>
+            </div>
+          )}
         </div>
 
         <AnimatePresence>
@@ -1576,8 +1747,13 @@ function AddEarningScreen({ platforms, onAdd }: { platforms: Platform[]; onAdd: 
         <Input label="📦  Outros Gastos (Opcional)" type="number" prefix="R$" value={otherCost} onChange={setOtherCost} placeholder="0,00" />
         <Input label="KM Rodados (Opcional)" type="number" value={km} onChange={setKm} placeholder="0" />
 
-        <div className="pt-4">
-          <Button onClick={handleSubmit} className="w-full" disabled={selectedPlatforms.length === 0 || !fuel}>Salvar Lançamento</Button>
+        <div className="pt-4 flex gap-3">
+          {editingEarning && (
+            <Button onClick={onCancel} variant="secondary" className="flex-1">Cancelar</Button>
+          )}
+          <Button onClick={handleSubmit} className="flex-[2]" disabled={selectedPlatforms.length === 0 || !fuel}>
+            {editingEarning ? "Salvar Alterações" : "Salvar Lançamento"}
+          </Button>
         </div>
       </div>
     </motion.div>
@@ -1729,10 +1905,13 @@ function MaintenanceScreen({
           </div>
         ) : (
           maintenance.map(m => (
-            <Card key={m.id} className={cn(
-              "p-4 group transition-all space-y-3",
-              m.status === "Pendente" ? "border-amber-200 bg-amber-50/30" : ""
-            )}>
+            <Card 
+              key={m.id} 
+              className={cn(
+                "p-4 transition-all",
+                m.status === "Realizada" ? "bg-emerald-50 border-emerald-200" : "bg-white border-zinc-100"
+              )}
+            >
               {/* Top row: icon + service name + status badge */}
               <div className="flex items-start gap-3 cursor-pointer" onClick={() => handleEdit(m)}>
                 <div className={cn(
@@ -1952,6 +2131,15 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
             </div>
           )}
 
+          {vehicleType === "Próprio" && (
+            <div className="space-y-4">
+              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" />
+              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" />
+              <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} />
+              <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} />
+            </div>
+          )}
+
           <Button onClick={handleSaveVehicle} className="w-full">Salvar Alterações</Button>
         </div>
       </motion.div>
@@ -2019,14 +2207,14 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
             className="flex flex-col items-center gap-2"
           >
             <p className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Foto alterada</p>
-            <Button 
-              onClick={() => onUpdate({ ...user!, avatar })} 
+            <Button
+              onClick={() => onUpdate({ ...user!, avatar })}
               className="px-6 py-2 h-auto text-xs"
             >
               Salvar Nova Foto
             </Button>
-            <button 
-              onClick={() => setAvatar(user?.avatar || "")} 
+            <button
+              onClick={() => setAvatar(user?.avatar || "")}
               className="text-[10px] text-zinc-400 font-bold hover:underline"
             >
               Descartar
@@ -2056,7 +2244,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
             <ProfileItem onClick={() => setActiveSection("vehicle")} icon={<Fuel className="w-4 h-4" />} label="Meu Veículo" />
             <ProfileItem onClick={() => setActiveSection("platforms")} icon={<CarFront className="w-4 h-4" />} label="Minhas Plataformas" />
             <ProfileItem onClick={() => setActiveSection("goals")} icon={<TrendingUp className="w-4 h-4" />} label="Minhas Metas" />
-            <ProfileItem onClick={() => setActiveSection("notifications")} icon={<Bell className="w-4 h-4" />} label="Notificações" />
+            <ProfileItem onClick={() => setActiveSection("notifications")} icon={<Calendar className="w-4 h-4" />} label="Meus dias" />
           </Card>
         </div>
       )}
