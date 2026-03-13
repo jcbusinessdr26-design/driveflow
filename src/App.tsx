@@ -541,7 +541,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v2.2</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v2.3</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -756,7 +756,10 @@ export default function App() {
                           })
                           .eq('id', session.user.id);
 
-                        if (!error) {
+                        if (error) {
+                          alert("Erro ao salvar perfil: " + error.message);
+                          throw error; // Let the screen know it failed
+                        } else {
                           setUser(updated);
                         }
                       }}
@@ -1960,6 +1963,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
   setMaintenanceAlertsEnabled: (v: boolean) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<"none" | "platforms" | "goals" | "notifications" | "vehicle">("none");
   const [name, setName] = useState(user?.name || "");
   const [avatar, setAvatar] = useState(user?.avatar || "");
@@ -2127,7 +2131,21 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
             </div>
           )}
 
-          <Button onClick={handleSaveVehicle} className="w-full">Salvar Alterações</Button>
+          <Button 
+            onClick={async () => {
+              setIsSaving(true);
+              try {
+                await handleSaveVehicle();
+                // Success feedback handled by parent update
+              } finally {
+                setIsSaving(false);
+              }
+            }} 
+            className="w-full"
+            disabled={isSaving}
+          >
+            {isSaving ? "Salvando..." : "Salvar Alterações"}
+          </Button>
         </div>
       </motion.div>
     );
