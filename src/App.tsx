@@ -77,6 +77,7 @@ interface Earning {
   foodCost?: number;
   otherCost?: number;
   km?: number;
+  hours?: number;
 }
 
 interface Maintenance {
@@ -348,7 +349,8 @@ export default function App() {
         fuelCost: Number(e.fuel_cost),
         foodCost: Number(e.food_cost),
         otherCost: Number(e.other_cost),
-        km: Number(e.km)
+        km: Number(e.km),
+        hours: Number(e.hours_worked || 0)
       })));
     }
 
@@ -472,6 +474,7 @@ export default function App() {
     const totalFood = filteredEarnings.reduce((acc, curr) => acc + (curr.foodCost || 0), 0);
     const totalOther = filteredEarnings.reduce((acc, curr) => acc + (curr.otherCost || 0), 0);
     const totalKm = filteredEarnings.reduce((acc, curr) => acc + (curr.km || 0), 0);
+    const totalHours = filteredEarnings.reduce((acc, curr) => acc + (curr.hours || 0), 0);
 
     let autoExpenses = 0;
 
@@ -496,8 +499,14 @@ export default function App() {
     }
 
     const netProfit = totalEarned - totalFuel - totalFood - totalOther - autoExpenses;
+    
+    const gainPerKm = totalKm > 0 ? netProfit / totalKm : 0;
+    const gainPerHour = totalHours > 0 ? netProfit / totalHours : 0;
 
-    return { totalEarned, totalFuel, totalFood, totalOther, totalKm, netProfit, autoExpenses, autoExpensesDays };
+    return { 
+      totalEarned, totalFuel, totalFood, totalOther, totalKm, totalHours, 
+      netProfit, autoExpenses, autoExpensesDays, gainPerKm, gainPerHour 
+    };
   }, [filteredEarnings, user, filter, customRange, filterRange]);
 
   const hasTodayMaintenance = useMemo(() => {
@@ -541,7 +550,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v2.3</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.0</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -620,7 +629,8 @@ export default function App() {
                               fuel_cost: e.fuelCost,
                               food_cost: e.foodCost || 0,
                               other_cost: e.otherCost || 0,
-                              km: e.km || 0
+                              km: e.km || 0,
+                              hours_worked: e.hours || 0
                             })
                             .eq('id', editingEarning.id);
 
@@ -640,7 +650,8 @@ export default function App() {
                               fuel_cost: e.fuelCost,
                               food_cost: e.foodCost || 0,
                               other_cost: e.otherCost || 0,
-                              km: e.km || 0
+                              km: e.km || 0,
+                              hours_worked: e.hours || 0
                             })
                             .select()
                             .single();
@@ -653,9 +664,10 @@ export default function App() {
                               totalEarned: Number(newEarning.total_earned),
                               fuelCost: Number(newEarning.fuel_cost),
                               foodCost: Number(newEarning.food_cost),
-                              otherCost: Number(newEarning.other_cost),
-                              km: Number(newEarning.km)
-                            }, ...earnings]);
+                                otherCost: newEarning.other_cost,
+                                km: newEarning.km,
+                                hours: newEarning.hours_worked
+                              }, ...earnings]);
                             setActiveTab("home");
                           }
                         }
@@ -1310,6 +1322,40 @@ function HomeScreen({
         );
       })()}
 
+      {/* Meta Countdown */}
+      {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
+        const remainingGoal = goal - stats.netProfit;
+        return (
+          <Card className={cn("border-blue-100", remainingGoal > 0 ? "bg-blue-50" : "bg-emerald-50 border-emerald-100")}>
+            {remainingGoal > 0 ? (
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+                    Falta para sua meta
+                  </p>
+                  <p className="text-2xl font-black text-blue-700">
+                    R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <TrendingUp className="w-6 h-6 text-blue-500" />
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
+                    Meta atingida
+                  </p>
+                  <p className="text-xl font-black text-emerald-700">
+                    Parabéns 🎉
+                  </p>
+                </div>
+                <Check className="w-6 h-6 text-emerald-600" />
+              </div>
+            )}
+          </Card>
+        );
+      })()}
+
       {/* Secondary Stats — 2×2 grid + extras full-width */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="flex flex-col gap-1.5 p-4">
@@ -1325,6 +1371,13 @@ function HomeScreen({
             <span className="text-[10px] font-bold uppercase tracking-wider">Combustível</span>
           </div>
           <p className="text-base font-black text-orange-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        </Card>
+        <Card className="flex flex-col gap-1.5 p-4">
+          <div className="flex items-center gap-1.5 text-blue-500">
+            <CarFront className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">KM Rodados</span>
+          </div>
+          <p className="text-base font-black text-blue-600">{stats.totalKm.toLocaleString('pt-BR')} km</p>
         </Card>
         <Card className="flex flex-col gap-1.5 p-4">
           <div className="flex items-center gap-1.5 text-amber-500">
@@ -1363,6 +1416,51 @@ function HomeScreen({
           </Card>
         )}
       </div>
+
+      {/* Productivity Coach */}
+      {(() => {
+        let dailyGoalNeeded = 0;
+        let daysRemaining = 0;
+        if (goal > 0 && stats.netProfit !== undefined) {
+          const remainingGoal = goal - stats.netProfit;
+          const today = startOfDay(new Date());
+          const endDate = startOfDay(filterRange.end);
+          if (endDate >= today) {
+            daysRemaining = differenceInCalendarDays(endDate, today) + 1;
+            if (daysRemaining > 0 && remainingGoal > 0) {
+              dailyGoalNeeded = remainingGoal / daysRemaining;
+            }
+          }
+        }
+
+        return (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-zinc-900 px-1">Produtividade</h3>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <Card className="flex flex-col gap-1.5 p-4 border-emerald-100 bg-emerald-50/50">
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Ganho real p/ KM</p>
+                <p className="text-xl font-black text-emerald-700">R$ {stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-emerald-600/70 ml-1">/ km</span></p>
+              </Card>
+              <Card className="flex flex-col gap-1.5 p-4 border-blue-100 bg-blue-50/50">
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ Hora</p>
+                <p className="text-xl font-black text-blue-700">R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span></p>
+              </Card>
+              {dailyGoalNeeded > 0 && (
+                <Card className="col-span-2 flex items-center justify-between p-4 border-purple-100 bg-purple-50/50">
+                  <div className="flex items-center gap-2 text-purple-600">
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Meta Diária Necessária
+                      <span className="ml-1 text-[9px] opacity-70">({daysRemaining} {daysRemaining === 1 ? "dia" : "dias"})</span>
+                    </span>
+                  </div>
+                  <p className="text-base font-black text-purple-700">R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </Card>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Chart */}
       <Card className="p-0 pt-6 border-zinc-100 shadow-sm">
@@ -1589,6 +1687,7 @@ function AddEarningScreen({
   const [food, setFood] = useState(editingEarning?.foodCost?.toString() || "");
   const [otherCost, setOtherCost] = useState(editingEarning?.otherCost?.toString() || "");
   const [km, setKm] = useState(editingEarning?.km?.toString() || "");
+  const [hours, setHours] = useState(editingEarning?.hours?.toString() || "");
   const [showNewPlatformInput, setShowNewPlatformInput] = useState(false);
   const [newPlatformName, setNewPlatformName] = useState("");
 
@@ -1634,7 +1733,8 @@ function AddEarningScreen({
       fuelCost: Number(fuel),
       foodCost: food ? Number(food) : undefined,
       otherCost: otherCost ? Number(otherCost) : undefined,
-      km: km ? Number(km) : undefined
+      km: km ? Number(km) : undefined,
+      hours: hours ? Number(hours) : undefined
     });
   };
 
@@ -1735,7 +1835,10 @@ function AddEarningScreen({
         <Input label="Gasto com Combustível" type="number" prefix="R$" value={fuel} onChange={setFuel} placeholder="0,00" />
         <Input label="🍽️  Alimentação (Opcional)" type="number" prefix="R$" value={food} onChange={setFood} placeholder="0,00" />
         <Input label="📦  Outros Gastos (Opcional)" type="number" prefix="R$" value={otherCost} onChange={setOtherCost} placeholder="0,00" />
-        <Input label="KM Rodados (Opcional)" type="number" value={km} onChange={setKm} placeholder="0" />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="KM Rodados" type="number" value={km} onChange={setKm} placeholder="0" />
+          <Input label="Horas Trabs" type="number" value={hours} onChange={setHours} placeholder="Ex: 8.5" />
+        </div>
 
         <div className="pt-4 flex gap-3">
           {editingEarning && (
