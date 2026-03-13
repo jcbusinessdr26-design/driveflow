@@ -479,14 +479,7 @@ export default function App() {
 
     if (user?.vehicleType === "Alugado" && user.weeklyRent) {
       const weekly = Number(user.weeklyRent);
-      const now = new Date();
-      // Cap at today if we're in the middle of the period
-      const effectiveEnd = isWithinInterval(now, { start: filterRange.start, end: filterRange.end }) 
-        ? endOfDay(now) 
-        : filterRange.end;
-      
-      const days = differenceInCalendarDays(effectiveEnd, filterRange.start) + 1;
-      // Also ensure we don't show negative days if start is in future
+      const days = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
       autoExpensesDays = Math.max(0, days);
       autoExpenses = (weekly / 7) * autoExpensesDays;
     }
@@ -494,14 +487,8 @@ export default function App() {
     if (user?.vehicleType === "Próprio") {
       const ipva = Number(user.ipva || 0);
       const fines = Number(user.fines || 0);
-      const now = new Date();
       const yearDays = 365;
-      
-      const effectiveEnd = isWithinInterval(now, { start: filterRange.start, end: filterRange.end }) 
-        ? endOfDay(now) 
-        : filterRange.end;
-        
-      const filterDays = differenceInCalendarDays(effectiveEnd, filterRange.start) + 1;
+      const filterDays = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
       autoExpensesDays = Math.max(0, filterDays);
       
       autoExpenses = (ipva / yearDays) * autoExpensesDays;
@@ -554,7 +541,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v2.1</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v2.2</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
