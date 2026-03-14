@@ -554,7 +554,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.1</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.2</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -1288,34 +1288,80 @@ function HomeScreen({
 
       {/* Main Stats */}
       {(() => {
-        const isPositive = stats.netProfit >= 0;
+        const earned = stats.totalEarned;
+        const rent = stats.autoExpenses;
+
+        const remainingRent = Math.max(rent - earned, 0);
+        const rentPaid = earned >= rent;
+
         return (
-          <Card className={cn(
-            "relative overflow-hidden text-white shadow-xl",
-            isPositive
-              ? "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 shadow-emerald-500/20"
-              : "bg-gradient-to-br from-rose-500 to-rose-600 border-rose-400 shadow-rose-500/20"
-          )}>
-            <div className={cn("absolute -right-10 -top-10 w-40 h-40 blur-3xl rounded-full", isPositive ? "bg-white/10" : "bg-white/10")} />
-            <div className="relative z-10">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className={cn("text-xs font-bold uppercase tracking-widest mb-1", isPositive ? "text-emerald-100" : "text-rose-100")}>
-                    Lucro Líquido
-                  </p>
-                  <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
-                    R$ {stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </h2>
-                  <p className="text-[10px] mt-2 opacity-90 leading-tight pr-8">
-                    Já com combustível, alimentação, outros gastos e aluguel descontados.
-                  </p>
-                </div>
-                <div className="bg-white/20 p-2 rounded-xl flex-shrink-0">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
+          <div className="space-y-2">
+            <Card
+              className={cn(
+                "relative overflow-hidden text-white shadow-xl",
+                rentPaid
+                  ? "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 shadow-emerald-500/20"
+                  : "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-400 shadow-orange-500/20"
+              )}
+            >
+              <div className={cn("absolute -right-10 -top-10 w-40 h-40 blur-3xl rounded-full bg-white/10")} />
+              <div className="relative z-10">
+
+                {!rentPaid ? (
+                  <>
+                    <p className="text-xs font-bold uppercase tracking-widest text-orange-100">
+                      Falta para pagar o aluguel
+                    </p>
+
+                    <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
+                      R$ {remainingRent.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                    </h2>
+
+                    <p className="text-[10px] mt-2 text-orange-100 opacity-90 leading-tight pr-8">
+                      Assim que pagar o aluguel, seus ganhos começam a virar lucro.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-emerald-100 mb-1">
+                          Lucro Líquido
+                        </p>
+
+                        <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
+                          R$ {stats.netProfit.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                        </h2>
+                      </div>
+                      <div className="bg-white/20 p-2 rounded-xl flex-shrink-0">
+                        <DollarSign className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] mt-2 text-emerald-100 opacity-90 leading-tight pr-8">
+                      Já com combustível, alimentação, outros gastos e aluguel descontados.
+                    </p>
+                  </>
+                )}
+
               </div>
-            </div>
-          </Card>
+            </Card>
+
+            {/* Check de "Aluguel pago hoje" pequeno embaixo */}
+            {rentPaid && rent > 0 && (
+              <div className="flex items-center gap-1.5 px-1 pt-0.5 mt-1">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                  Aluguel pago hoje ✅
+                </span>
+              </div>
+            )}
+          </div>
         );
       })()}
 
