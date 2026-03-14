@@ -554,7 +554,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.2</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.3</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -1288,87 +1288,42 @@ function HomeScreen({
 
       {/* Main Stats */}
       {(() => {
-        const earned = stats.totalEarned;
-        const rent = stats.autoExpenses;
-
-        const remainingRent = Math.max(rent - earned, 0);
-        const rentPaid = earned >= rent;
-
+        const isPositive = stats.netProfit >= 0;
         return (
-          <div className="space-y-2">
-            <Card
-              className={cn(
-                "relative overflow-hidden text-white shadow-xl",
-                rentPaid
-                  ? "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 shadow-emerald-500/20"
-                  : "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-400 shadow-orange-500/20"
-              )}
-            >
-              <div className={cn("absolute -right-10 -top-10 w-40 h-40 blur-3xl rounded-full bg-white/10")} />
-              <div className="relative z-10">
-
-                {!rentPaid ? (
-                  <>
-                    <p className="text-xs font-bold uppercase tracking-widest text-orange-100">
-                      Falta para pagar o aluguel
-                    </p>
-
-                    <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
-                      R$ {remainingRent.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </h2>
-
-                    <p className="text-[10px] mt-2 text-orange-100 opacity-90 leading-tight pr-8">
-                      Assim que pagar o aluguel, seus ganhos começam a virar lucro.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-emerald-100 mb-1">
-                          Lucro Líquido
-                        </p>
-
-                        <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
-                          R$ {stats.netProfit.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          })}
-                        </h2>
-                      </div>
-                      <div className="bg-white/20 p-2 rounded-xl flex-shrink-0">
-                        <DollarSign className="w-5 h-5 text-white" />
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] mt-2 text-emerald-100 opacity-90 leading-tight pr-8">
-                      Já com combustível, alimentação, outros gastos e aluguel descontados.
-                    </p>
-                  </>
-                )}
-
+          <Card className={cn(
+            "relative overflow-hidden text-white shadow-xl",
+            isPositive
+              ? "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 shadow-emerald-500/20"
+              : "bg-gradient-to-br from-rose-500 to-rose-600 border-rose-400 shadow-rose-500/20"
+          )}>
+            <div className={cn("absolute -right-10 -top-10 w-40 h-40 blur-3xl rounded-full", isPositive ? "bg-white/10" : "bg-white/10")} />
+            <div className="relative z-10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className={cn("text-xs font-bold uppercase tracking-widest mb-1", isPositive ? "text-emerald-100" : "text-rose-100")}>
+                    Lucro Líquido
+                  </p>
+                  <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
+                    R$ {stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </h2>
+                  <p className="text-[10px] mt-2 opacity-90 leading-tight pr-8">
+                    Já com combustível, alimentação, outros gastos e aluguel descontados.
+                  </p>
+                </div>
+                <div className="bg-white/20 p-2 rounded-xl flex-shrink-0">
+                  <DollarSign className="w-5 h-5 text-white" />
+                </div>
               </div>
-            </Card>
-
-            {/* Check de "Aluguel pago hoje" pequeno embaixo */}
-            {rentPaid && rent > 0 && (
-              <div className="flex items-center gap-1.5 px-1 pt-0.5 mt-1">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                  Aluguel pago hoje ✅
-                </span>
-              </div>
-            )}
-          </div>
+            </div>
+          </Card>
         );
       })()}
 
       {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
+        const achievedProfit = Math.max(0, stats.netProfit);
         const remainingGoal = goal - stats.netProfit;
-        const metaProgress = Math.min(100, Math.max(0, (stats.netProfit / goal) * 100));
+        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / goal) * 100));
         
         return (
           <Card className="p-4 space-y-3">
@@ -1379,7 +1334,7 @@ function HomeScreen({
                 </p>
                 {remainingGoal > 0 ? (
                   <p className="text-xl font-black text-zinc-900 tracking-tight">
-                    Faltam <span className="text-blue-600">R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    Atingido <span className="text-emerald-600">R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </p>
                 ) : (
                   <p className="text-xl font-black text-emerald-600 tracking-tight">
@@ -1422,19 +1377,35 @@ function HomeScreen({
       })()}
 
       {/* Bloco 4: Operacional */}
-      <div className="grid grid-cols-3 gap-2">
-        <Card className="flex flex-col gap-1 p-3">
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Bruto</p>
-          <p className="text-sm font-black text-zinc-900 line-clamp-1">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
-        </Card>
-        <Card className="flex flex-col gap-1 p-3">
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gastos</p>
-          <p className="text-sm font-black text-rose-600 line-clamp-1">- R$ {(stats.totalFuel + stats.totalFood + stats.totalOther + stats.autoExpenses).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
-        </Card>
-        <Card className="flex flex-col gap-1 p-3">
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">KM</p>
-          <p className="text-sm font-black text-blue-600 line-clamp-1">{stats.totalKm.toLocaleString('pt-BR')}</p>
-        </Card>
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Card className="flex flex-col gap-1 p-3">
+            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Bruto</p>
+            <p className="text-sm font-black text-zinc-900 line-clamp-1">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
+          </Card>
+          <Card className="flex flex-col gap-1 p-3">
+            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gastos</p>
+            <p className="text-sm font-black text-rose-600 line-clamp-1">- R$ {(stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
+          </Card>
+          <Card className="flex flex-col gap-1 p-3">
+            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">KM</p>
+            <p className="text-sm font-black text-blue-600 line-clamp-1">{stats.totalKm.toLocaleString('pt-BR')}</p>
+          </Card>
+        </div>
+        
+        {stats.autoExpenses > 0 && (
+          <Card className="flex items-center justify-between p-3 border-rose-100 bg-rose-50/50">
+            <div className="flex items-center gap-2 text-rose-600">
+              <Wrench className="w-4 h-4" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">
+                {user?.vehicleType === "Alugado"
+                  ? `Aluguel (${filter === "dia" ? "Diário" : filter === "semana" ? "Semanal" : filter === "mês" ? "Mensal" : filter === "trimestre" ? "Trimestral" : filter === "semestre" ? "Semestral" : filter === "anual" ? "Anual" : "Período"})`
+                  : "Custos Fixos"}
+              </span>
+            </div>
+            <p className="text-sm font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </Card>
+        )}
       </div>
 
       <details className="group">
