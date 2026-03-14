@@ -1409,7 +1409,7 @@ function HomeScreen({
                             filter === "anual" ? "Anual" : "Período"
                   })`
                   : "Custos Fixos (IPVA/Multas)"}
-                <span className="ml-1 text-[9px] opacity-70">({stats.autoExpensesDays} {stats.autoExpensesDays === 1 ? "dia" : "dias"})</span>
+                <span className="ml-1 text-[9px] opacity-70">({stats.autoExpensesDays} {stats.autoExpensesDays === 1 ? "dia" : "dias"} • {format(new Date(), 'dd/MM')})</span>
               </span>
             </div>
             <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
