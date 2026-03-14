@@ -19,7 +19,8 @@ import {
   Trash2,
   Pencil,
   Bell,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -558,7 +559,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.3</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.5</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -1174,6 +1175,39 @@ function HomeScreen({
 
   const years = Array.from({ length: 16 }, (_, i) => 2025 + i);
 
+  const handleExport = () => {
+    // CSV Header
+    const headers = ["Data", "Total Bruto", "Combustivel", "Alimentacao", "Outros", "KM", "Corridas", "Horas"].join(";");
+    const rows = earnings.map(e => [
+      format(parseISO(e.date), 'dd/MM/yyyy'),
+      e.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      e.fuelCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      (e.foodCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      (e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      e.km || 0,
+      e.trips || 0,
+      e.hours || 0
+    ].join(";"));
+    
+    // Summary Row
+    const summaryHeader = ["", "LIQUIDO", "BRUTO", "CUSTOS OPE.", "CUSTOS FIXOS"].join(";");
+    const summaryRow = ["", 
+      stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      (stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+    ].join(";");
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows, "", summaryHeader, summaryRow].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `driverflow_relatorio_${filter}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 pb-12">
       <AnimatePresence>
@@ -1228,6 +1262,17 @@ function HomeScreen({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <div className="flex items-center justify-between px-1">
+        <h2 className="text-sm font-bold tracking-tight text-zinc-900">Período de Análise</h2>
+        <button 
+          onClick={handleExport}
+          className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar
+        </button>
+      </div>
 
       {/* Filter Chips */}
       <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar -mx-6 px-6">
