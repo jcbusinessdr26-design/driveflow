@@ -73,8 +73,17 @@ function parseLocalNumber(val: any): number {
 
 function parseLocalDate(dateStr: string): Date {
   if (!dateStr) return new Date();
-  // Handles "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss..."
+  
+  // Handles "YYYY-MM-DDTHH:mm:ss..."
   const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  
+  // Handles DD/MM/YYYY
+  if (datePart.includes('/')) {
+    const [day, month, year] = datePart.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  // Handles YYYY-MM-DD
   const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
@@ -1586,6 +1595,8 @@ function HomeScreen({
         let daysRemaining = 0;
         if (goal > 0 && stats.netProfit !== undefined) {
           const remainingGoal = goal - stats.netProfit;
+          
+          // To calculate the daily goal remaining, always use today as reference
           const today = startOfDay(new Date());
           const endOfMonthDate = endOfMonth(today);
           
