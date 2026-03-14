@@ -62,6 +62,13 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function parseLocalNumber(val: any): number {
+  if (val === undefined || val === null || val === "") return 0;
+  if (typeof val === 'number') return val;
+  const parsed = Number(String(val).replace(',', '.'));
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 // --- Types ---
 type Platform = string;
 
@@ -480,8 +487,8 @@ export default function App() {
   }, [maintenance]);
 
   const stats = useMemo(() => {
-    const totalEarned = filteredEarnings.reduce((acc, curr) => acc + curr.totalEarned, 0);
-    const totalFuel = filteredEarnings.reduce((acc, curr) => acc + curr.fuelCost, 0);
+    const totalEarned = filteredEarnings.reduce((acc, curr) => acc + (curr.totalEarned || 0), 0);
+    const totalFuel = filteredEarnings.reduce((acc, curr) => acc + (curr.fuelCost || 0), 0);
     const totalFood = filteredEarnings.reduce((acc, curr) => acc + (curr.foodCost || 0), 0);
     const totalOther = filteredEarnings.reduce((acc, curr) => acc + (curr.otherCost || 0), 0);
     const totalKm = filteredEarnings.reduce((acc, curr) => acc + (curr.km || 0), 0);
@@ -496,15 +503,15 @@ export default function App() {
     const effectiveEndDate = isAfter(filterRange.end, now) ? now : filterRange.end;
 
     if (user?.vehicleType === "Alugado" && user.weeklyRent) {
-      const weekly = Number(user.weeklyRent);
+      const weekly = parseLocalNumber(user.weeklyRent);
       const days = differenceInCalendarDays(effectiveEndDate, filterRange.start) + 1;
       autoExpensesDays = Math.max(0, days);
       autoExpenses = (weekly / 7) * autoExpensesDays;
     }
 
     if (user?.vehicleType === "Próprio") {
-      const ipva = Number(user.ipva || 0);
-      const fines = Number(user.fines || 0);
+      const ipva = parseLocalNumber(user.ipva);
+      const fines = parseLocalNumber(user.fines);
       const yearDays = 365;
       const days = differenceInCalendarDays(effectiveEndDate, filterRange.start) + 1;
       autoExpensesDays = Math.max(0, days);
@@ -513,7 +520,8 @@ export default function App() {
       autoExpenses += fines;
     }
 
-    const netProfit = totalEarned - totalFuel - totalFood - totalOther - autoExpenses;
+    const rawNetProfit = totalEarned - totalFuel - totalFood - totalOther - autoExpenses;
+    const netProfit = isNaN(rawNetProfit) ? 0 : rawNetProfit;
     
     const gainPerKm = totalKm > 0 ? netProfit / totalKm : 0;
     const gainPerHour = totalHours > 0 ? netProfit / totalHours : 0;
@@ -566,7 +574,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.6</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.7</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -1115,13 +1123,13 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
                 name,
                 avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
                 platforms: selectedPlatforms,
-                monthlyGoal: Number(goal),
+                monthlyGoal: parseLocalNumber(goal),
                 vehicleType,
                 vehicleName,
                 licensePlate,
-                weeklyRent: vehicleType === "Alugado" ? Number(weeklyRent) : undefined,
-                ipva: vehicleType === "Próprio" ? Number(ipva) : undefined,
-                fines: vehicleType === "Próprio" ? Number(fines) : undefined
+                weeklyRent: vehicleType === "Alugado" ? parseLocalNumber(weeklyRent) : undefined,
+                ipva: vehicleType === "Próprio" ? parseLocalNumber(ipva) : undefined,
+                fines: vehicleType === "Próprio" ? parseLocalNumber(fines) : undefined
               })}
               className="flex-1"
             >
@@ -1836,14 +1844,14 @@ function AddEarningScreen({
     setAmounts({ ...amounts, [p]: val });
   };
 
-  const totalEarned = selectedPlatforms.reduce((acc, p) => acc + (Number(amounts[p]) || 0), 0);
+  const totalEarned = selectedPlatforms.reduce((acc, p) => acc + parseLocalNumber(amounts[p]), 0);
 
   const handleSubmit = () => {
     if (selectedPlatforms.length === 0 || !fuel) return;
 
     const platformDetails = selectedPlatforms.map(p => ({
       name: p,
-      amount: Number(amounts[p]) || 0
+      amount: parseLocalNumber(amounts[p])
     }));
 
     onAdd({
@@ -1851,12 +1859,12 @@ function AddEarningScreen({
       date,
       platformDetails,
       totalEarned,
-      fuelCost: Number(fuel),
-      foodCost: food ? Number(food) : undefined,
-      otherCost: otherCost ? Number(otherCost) : undefined,
-      km: km ? Number(km) : undefined,
-      trips: trips ? Number(trips) : undefined,
-      hours: hours ? Number(hours) : undefined
+      fuelCost: parseLocalNumber(fuel),
+      foodCost: food ? parseLocalNumber(food) : undefined,
+      otherCost: otherCost ? parseLocalNumber(otherCost) : undefined,
+      km: km ? parseLocalNumber(km) : undefined,
+      trips: trips ? parseLocalNumber(trips) : undefined,
+      hours: hours ? parseLocalNumber(hours) : undefined
     });
   };
 
@@ -2029,7 +2037,7 @@ function MaintenanceScreen({
         date,
         type,
         service,
-        value: Number(value),
+        value: parseLocalNumber(value),
         status
       });
     } else {
@@ -2038,7 +2046,7 @@ function MaintenanceScreen({
         date,
         type,
         service,
-        value: Number(value),
+        value: parseLocalNumber(value),
         status
       });
     }
@@ -2230,7 +2238,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
 
   const handleSaveGoal = () => {
     if (user) {
-      onUpdate({ ...user, monthlyGoal: Number(goal) });
+      onUpdate({ ...user, monthlyGoal: parseLocalNumber(goal) });
       setActiveSection("none");
     }
   };
@@ -2258,9 +2266,9 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
         vehicleType,
         vehicleName,
         licensePlate,
-        weeklyRent: vehicleType === "Alugado" ? Number(weeklyRent) : undefined,
-        ipva: vehicleType === "Próprio" ? Number(ipva) : undefined,
-        fines: vehicleType === "Próprio" ? Number(fines) : undefined
+        weeklyRent: vehicleType === "Alugado" ? parseLocalNumber(weeklyRent) : undefined,
+        ipva: vehicleType === "Próprio" ? parseLocalNumber(ipva) : undefined,
+        fines: vehicleType === "Próprio" ? parseLocalNumber(fines) : undefined
       });
       setActiveSection("none");
     }
