@@ -88,6 +88,59 @@ function parseLocalDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// --- Pure Calculation Functions ---
+function getWorkedDays(earnings: Earning[]): number {
+  return new Set(
+    earnings.map(e => {
+      try {
+        return format(parseLocalDate(e.date), "yyyy-MM-dd");
+      } catch {
+        return e.date;
+      }
+    })
+  ).size;
+}
+
+function getVariableCosts(earnings: Earning[]) {
+  return earnings.reduce(
+    (acc, curr) => {
+      acc.fuel += curr.fuelCost || 0;
+      acc.food += curr.foodCost || 0;
+      acc.other += curr.otherCost || 0;
+      return acc;
+    },
+    { fuel: 0, food: 0, other: 0 }
+  );
+}
+
+function getRentCostForPeriod(weeklyRent: number | undefined, workedDays: number): number {
+  if (!weeklyRent || workedDays <= 0) return 0;
+  return (weeklyRent / 7) * workedDays;
+}
+
+function getIpvaCostForPeriod(ipva: number | undefined, workedDays: number): number {
+  if (!ipva || workedDays <= 0) return 0;
+  return (ipva / 365) * workedDays;
+}
+
+function getNetProfit(params: {
+  totalEarned: number;
+  fuel: number;
+  food: number;
+  other: number;
+  maintenance: number;
+  fixedCosts: number;
+}): number {
+  return (
+    params.totalEarned -
+    params.fuel -
+    params.food -
+    params.other -
+    params.maintenance -
+    params.fixedCosts
+  );
+}
+
 // --- Types ---
 type Platform = string;
 
@@ -509,9 +562,7 @@ export default function App() {
 
   const stats = useMemo(() => {
     const totalEarned = filteredEarnings.reduce((acc, curr) => acc + (curr.totalEarned || 0), 0);
-    const totalFuel = filteredEarnings.reduce((acc, curr) => acc + (curr.fuelCost || 0), 0);
-    const totalFood = filteredEarnings.reduce((acc, curr) => acc + (curr.foodCost || 0), 0);
-    const totalOther = filteredEarnings.reduce((acc, curr) => acc + (curr.otherCost || 0), 0);
+    const variableCosts = getVariableCosts(filteredEarnings);
     const totalKm = filteredEarnings.reduce((acc, curr) => acc + (curr.km || 0), 0);
     const totalTrips = filteredEarnings.reduce((acc, curr) => acc + (curr.trips || 0), 0);
     const totalHours = filteredEarnings.reduce((acc, curr) => acc + (curr.hours || 0), 0);
@@ -521,29 +572,28 @@ export default function App() {
       .filter(m => m.status === "Realizada")
       .reduce((acc, curr) => acc + (curr.value || 0), 0);
 
-    // Unique days worked (dates with at least one record)
-    const uniqueDates = new Set(filteredEarnings.map(e => e.date));
-    const workedDays = uniqueDates.size;
+    // Unique days worked
+    const workedDays = getWorkedDays(filteredEarnings);
 
+    // Fixed Costs
     let autoExpenses = 0;
     
-    // Proportional Rent based on worked days (not calendar days)
-    if (user?.vehicleType === "Alugado" && user.weeklyRent) {
-      const weekly = parseLocalNumber(user.weeklyRent);
-      const dailyRent = weekly / 7;
-      autoExpenses = dailyRent * workedDays;
-    }
-
-    // Proportional IPVA/Fines based on worked days
-    if (user?.vehicleType === "Próprio") {
-      const ipva = parseLocalNumber(user.ipva);
+    if (user?.vehicleType === "Alugado") {
+      autoExpenses = getRentCostForPeriod(parseLocalNumber(user.weeklyRent), workedDays);
+    } else if (user?.vehicleType === "Próprio") {
+      const ipva = getIpvaCostForPeriod(parseLocalNumber(user.ipva), workedDays);
       const fines = parseLocalNumber(user.fines);
-      const yearDays = 365;
-      const dailyIpva = ipva / yearDays;
-      autoExpenses = (dailyIpva * workedDays) + fines; // Assuming fines apply if any work is done in period, or maybe better to just add them. We'll keep them as total for the period.
+      autoExpenses = ipva + fines; // Fines applied as single total if period has work
     }
 
-    const rawNetProfit = totalEarned - totalFuel - totalFood - totalOther - totalMaintenance - autoExpenses;
+    const rawNetProfit = getNetProfit({
+      totalEarned,
+      fuel: variableCosts.fuel,
+      food: variableCosts.food,
+      other: variableCosts.other,
+      maintenance: totalMaintenance,
+      fixedCosts: autoExpenses
+    });
     const netProfit = isNaN(rawNetProfit) ? 0 : rawNetProfit;
     
     const gainPerKm = totalKm > 0 ? netProfit / totalKm : 0;
@@ -551,8 +601,21 @@ export default function App() {
     const avgNetPerTrip = totalTrips > 0 ? netProfit / totalTrips : 0;
 
     return { 
-      totalEarned, totalFuel, totalFood, totalOther, totalKm, totalTrips, totalHours, totalMaintenance, workedDays,
-      netProfit, autoExpenses, autoExpensesDays: workedDays, gainPerKm, gainPerHour, avgNetPerTrip 
+      totalEarned, 
+      totalFuel: variableCosts.fuel, 
+      totalFood: variableCosts.food, 
+      totalOther: variableCosts.other, 
+      totalKm, 
+      totalTrips, 
+      totalHours, 
+      totalMaintenance, 
+      workedDays,
+      netProfit, 
+      autoExpenses, 
+      autoExpensesDays: workedDays, 
+      gainPerKm, 
+      gainPerHour, 
+      avgNetPerTrip 
     };
   }, [filteredEarnings, filteredMaintenance, user]);
 
@@ -561,6 +624,27 @@ export default function App() {
     const today = format(new Date(), 'yyyy-MM-dd');
     return maintenance.some(m => m.date === today && m.status === "Pendente");
   }, [maintenance, maintenanceAlertsEnabled]);
+
+  const chartData = useMemo(() => {
+    const grouped = new Map<string, { date: string; totalEarned: number; totalCosts: number }>();
+
+    filteredEarnings.forEach(e => {
+      let key = e.date;
+      try {
+        key = format(parseLocalDate(e.date), "yyyy-MM-dd");
+      } catch (err) {
+        // preserve original
+      }
+      
+      const current = grouped.get(key) || { date: key, totalEarned: 0, totalCosts: 0 };
+      current.totalEarned += e.totalEarned || 0;
+      current.totalCosts += (e.fuelCost || 0) + (e.foodCost || 0) + (e.otherCost || 0);
+
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [filteredEarnings]);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sora selection:bg-blue-500/30">
@@ -1442,7 +1526,7 @@ function HomeScreen({
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  Meta do Mês: R$ {goal.toLocaleString('pt-BR')}
+                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {goal.toLocaleString('pt-BR')}
                 </p>
                 {remainingGoal > 0 ? (
                   <p className="text-xl font-black text-zinc-900 tracking-tight">
@@ -1663,7 +1747,7 @@ function HomeScreen({
         <div className="h-64 w-full px-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={[...earnings].reverse()}
+              data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               barGap={8}
             >
@@ -1721,7 +1805,7 @@ function HomeScreen({
               />
               <Bar
                 name="Gastos"
-                dataKey="fuelCost"
+                dataKey="totalCosts"
                 fill="#f43f5e"
                 radius={[4, 4, 0, 0]}
                 barSize={10}
