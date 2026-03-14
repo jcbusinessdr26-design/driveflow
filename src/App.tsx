@@ -77,6 +77,7 @@ interface Earning {
   foodCost?: number;
   otherCost?: number;
   km?: number;
+  trips?: number;
   hours?: number;
 }
 
@@ -350,6 +351,7 @@ export default function App() {
         foodCost: Number(e.food_cost),
         otherCost: Number(e.other_cost),
         km: Number(e.km),
+        trips: Number(e.trips || 0),
         hours: Number(e.hours_worked || 0)
       })));
     }
@@ -474,6 +476,7 @@ export default function App() {
     const totalFood = filteredEarnings.reduce((acc, curr) => acc + (curr.foodCost || 0), 0);
     const totalOther = filteredEarnings.reduce((acc, curr) => acc + (curr.otherCost || 0), 0);
     const totalKm = filteredEarnings.reduce((acc, curr) => acc + (curr.km || 0), 0);
+    const totalTrips = filteredEarnings.reduce((acc, curr) => acc + (curr.trips || 0), 0);
     const totalHours = filteredEarnings.reduce((acc, curr) => acc + (curr.hours || 0), 0);
 
     let autoExpenses = 0;
@@ -502,10 +505,11 @@ export default function App() {
     
     const gainPerKm = totalKm > 0 ? netProfit / totalKm : 0;
     const gainPerHour = totalHours > 0 ? netProfit / totalHours : 0;
+    const avgNetPerTrip = totalTrips > 0 ? netProfit / totalTrips : 0;
 
     return { 
-      totalEarned, totalFuel, totalFood, totalOther, totalKm, totalHours, 
-      netProfit, autoExpenses, autoExpensesDays, gainPerKm, gainPerHour 
+      totalEarned, totalFuel, totalFood, totalOther, totalKm, totalTrips, totalHours, 
+      netProfit, autoExpenses, autoExpensesDays, gainPerKm, gainPerHour, avgNetPerTrip 
     };
   }, [filteredEarnings, user, filter, customRange, filterRange]);
 
@@ -550,7 +554,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.0</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.1</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -630,6 +634,7 @@ export default function App() {
                               food_cost: e.foodCost || 0,
                               other_cost: e.otherCost || 0,
                               km: e.km || 0,
+                              trips: e.trips || 0,
                               hours_worked: e.hours || 0
                             })
                             .eq('id', editingEarning.id);
@@ -651,6 +656,7 @@ export default function App() {
                               food_cost: e.foodCost || 0,
                               other_cost: e.otherCost || 0,
                               km: e.km || 0,
+                              trips: e.trips || 0,
                               hours_worked: e.hours || 0
                             })
                             .select()
@@ -666,6 +672,7 @@ export default function App() {
                               foodCost: Number(newEarning.food_cost),
                                 otherCost: newEarning.other_cost,
                                 km: newEarning.km,
+                                trips: newEarning.trips,
                                 hours: newEarning.hours_worked
                               }, ...earnings]);
                             setActiveTab("home");
@@ -1291,30 +1298,20 @@ function HomeScreen({
           )}>
             <div className={cn("absolute -right-10 -top-10 w-40 h-40 blur-3xl rounded-full", isPositive ? "bg-white/10" : "bg-white/10")} />
             <div className="relative z-10">
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex justify-between items-start">
                 <div>
                   <p className={cn("text-xs font-bold uppercase tracking-widest mb-1", isPositive ? "text-emerald-100" : "text-rose-100")}>
-                    Ganhos Líquidos
+                    Lucro Líquido
                   </p>
-                  <h2 className="text-4xl font-bold tracking-tighter">
+                  <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
                     R$ {stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </h2>
+                  <p className="text-[10px] mt-2 opacity-90 leading-tight pr-8">
+                    Já com combustível, alimentação, outros gastos e aluguel descontados.
+                  </p>
                 </div>
-                <div className="bg-white/20 p-2 rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className={isPositive ? "text-emerald-100" : "text-rose-100"}>Progresso da Meta</span>
-                  <span className="text-white">{Math.round(progress)}%</span>
-                </div>
-                <div className="h-2 bg-black/10 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(0, progress)}%` }}
-                    className="h-full bg-white"
-                  />
+                <div className="bg-white/20 p-2 rounded-xl flex-shrink-0">
+                  <DollarSign className="w-5 h-5 text-white" />
                 </div>
               </div>
             </div>
@@ -1322,100 +1319,144 @@ function HomeScreen({
         );
       })()}
 
-      {/* Meta Countdown */}
+      {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
         const remainingGoal = goal - stats.netProfit;
+        const metaProgress = Math.min(100, Math.max(0, (stats.netProfit / goal) * 100));
+        
         return (
-          <Card className={cn("border-blue-100", remainingGoal > 0 ? "bg-blue-50" : "bg-emerald-50 border-emerald-100")}>
-            {remainingGoal > 0 ? (
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                    Falta para sua meta
+          <Card className="p-4 space-y-3">
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  Meta do Mês: R$ {goal.toLocaleString('pt-BR')}
+                </p>
+                {remainingGoal > 0 ? (
+                  <p className="text-xl font-black text-zinc-900 tracking-tight">
+                    Faltam <span className="text-blue-600">R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </p>
-                  <p className="text-2xl font-black text-blue-700">
-                    R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ) : (
+                  <p className="text-xl font-black text-emerald-600 tracking-tight">
+                    Meta atingida 🎉
                   </p>
-                </div>
-                <TrendingUp className="w-6 h-6 text-blue-500" />
+                )}
               </div>
-            ) : (
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
-                    Meta atingida
-                  </p>
-                  <p className="text-xl font-black text-emerald-700">
-                    Parabéns 🎉
-                  </p>
-                </div>
-                <Check className="w-6 h-6 text-emerald-600" />
-              </div>
-            )}
+              <TrendingUp className={cn("w-5 h-5 mb-1", remainingGoal > 0 ? "text-blue-500" : "text-emerald-500")} />
+            </div>
+            
+            <div className="h-2.5 bg-zinc-100 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${metaProgress}%` }}
+                className={cn("h-full rounded-full transition-all duration-1000", remainingGoal > 0 ? "bg-blue-500" : "bg-emerald-500")}
+              />
+            </div>
           </Card>
         );
       })()}
 
-      {/* Secondary Stats — 2×2 grid + extras full-width */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="flex flex-col gap-1.5 p-4">
-          <div className="flex items-center gap-1.5 text-zinc-400">
-            <DollarSign className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Total Bruto</span>
-          </div>
-          <p className="text-base font-black text-zinc-900">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-        </Card>
-        <Card className="flex flex-col gap-1.5 p-4">
-          <div className="flex items-center gap-1.5 text-orange-500">
-            <Fuel className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Combustível</span>
-          </div>
-          <p className="text-base font-black text-orange-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-        </Card>
-        <Card className="flex flex-col gap-1.5 p-4">
-          <div className="flex items-center gap-1.5 text-blue-500">
-            <CarFront className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">KM Rodados</span>
-          </div>
-          <p className="text-base font-black text-blue-600">{stats.totalKm.toLocaleString('pt-BR')} km</p>
-        </Card>
-        <Card className="flex flex-col gap-1.5 p-4">
-          <div className="flex items-center gap-1.5 text-amber-500">
-            <span className="text-sm">🍽️</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider">Alimentação</span>
-          </div>
-          <p className="text-base font-black text-amber-600">- R$ {stats.totalFood.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-        </Card>
-        {stats.totalOther > 0 && (
-          <Card className="flex flex-col gap-1.5 p-4">
-            <div className="flex items-center gap-1.5 text-purple-500">
-              <span className="text-sm">📦</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider">Outros</span>
+      {/* Bloco 3: Corridas Restantes */}
+      {goal > 0 && stats.netProfit !== undefined && stats.netProfit < goal && stats.avgNetPerTrip > 0 && (() => {
+        const remainingGoal = goal - stats.netProfit;
+        const tripsNeeded = Math.ceil(remainingGoal / stats.avgNetPerTrip);
+        return (
+          <Card className="p-4 bg-purple-50 border-purple-100">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-xl">
+                <CarFront className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Para bater a meta:</p>
+                <p className="text-lg font-black text-purple-700 tracking-tight">faltam ~{tripsNeeded} corridas</p>
+                <p className="text-[9px] font-medium text-purple-600/70 mt-0.5">Baseado na sua média líquida por corrida</p>
+              </div>
             </div>
-            <p className="text-base font-black text-purple-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
-        )}
-        {stats.autoExpenses > 0 && (
-          <Card className="col-span-2 flex items-center justify-between p-4 border-rose-100 bg-rose-50/50">
-            <div className="flex items-center gap-2 text-rose-500">
-              <Wrench className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">
-                {user?.vehicleType === "Alugado"
-                  ? `Aluguel do Veículo (${filter === "dia" ? "Diário" :
-                    filter === "semana" ? "Semanal" :
-                      filter === "mês" ? "Mensal" :
-                        filter === "trimestre" ? "Trimestral" :
-                          filter === "semestre" ? "Semestral" :
-                            filter === "anual" ? "Anual" : "Período"
-                  })`
-                  : "Custos Fixos (IPVA/Multas)"}
-                <span className="ml-1 text-[9px] opacity-70">({format(new Date(), 'dd/MM')})</span>
-              </span>
-            </div>
-            <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </Card>
-        )}
+        );
+      })()}
+
+      {/* Bloco 4: Operacional */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="flex flex-col gap-1 p-3">
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Bruto</p>
+          <p className="text-sm font-black text-zinc-900 line-clamp-1">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
+        </Card>
+        <Card className="flex flex-col gap-1 p-3">
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gastos</p>
+          <p className="text-sm font-black text-rose-600 line-clamp-1">- R$ {(stats.totalFuel + stats.totalFood + stats.totalOther + stats.autoExpenses).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
+        </Card>
+        <Card className="flex flex-col gap-1 p-3">
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">KM</p>
+          <p className="text-sm font-black text-blue-600 line-clamp-1">{stats.totalKm.toLocaleString('pt-BR')}</p>
+        </Card>
       </div>
+
+      <details className="group">
+        <summary className="text-xs font-bold text-zinc-500 uppercase tracking-wider cursor-pointer flex items-center gap-2 mb-3 list-none p-2 rounded-xl hover:bg-zinc-100 transition-colors">
+          <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
+          Ver Detalhamento de Gastos e Perfomance
+        </summary>
+        <div className="space-y-4 pt-2 pb-2 pl-2">
+          {/* Old Secondary Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="flex flex-col gap-1.5 p-4">
+              <div className="flex items-center gap-1.5 text-zinc-400">
+                <DollarSign className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Total Bruto</span>
+              </div>
+              <p className="text-base font-black text-zinc-900">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </Card>
+            <Card className="flex flex-col gap-1.5 p-4">
+              <div className="flex items-center gap-1.5 text-orange-500">
+                <Fuel className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Combustível</span>
+              </div>
+              <p className="text-base font-black text-orange-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </Card>
+            <Card className="flex flex-col gap-1.5 p-4">
+              <div className="flex items-center gap-1.5 text-blue-500">
+                <CarFront className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">KM Rodados</span>
+              </div>
+              <p className="text-base font-black text-blue-600">{stats.totalKm.toLocaleString('pt-BR')} km</p>
+            </Card>
+            <Card className="flex flex-col gap-1.5 p-4">
+              <div className="flex items-center gap-1.5 text-amber-500">
+                <span className="text-sm">🍽️</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Alimentação</span>
+              </div>
+              <p className="text-base font-black text-amber-600">- R$ {stats.totalFood.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </Card>
+            {stats.totalOther > 0 && (
+              <Card className="flex flex-col gap-1.5 p-4">
+                <div className="flex items-center gap-1.5 text-purple-500">
+                  <span className="text-sm">📦</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Outros</span>
+                </div>
+                <p className="text-base font-black text-purple-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </Card>
+            )}
+            {stats.autoExpenses > 0 && (
+              <Card className="col-span-2 flex items-center justify-between p-4 border-rose-100 bg-rose-50/50">
+                <div className="flex items-center gap-2 text-rose-500">
+                  <Wrench className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {user?.vehicleType === "Alugado"
+                      ? `Aluguel do Veículo (${filter === "dia" ? "Diário" :
+                        filter === "semana" ? "Semanal" :
+                          filter === "mês" ? "Mensal" :
+                            filter === "trimestre" ? "Trimestral" :
+                              filter === "semestre" ? "Semestral" :
+                                filter === "anual" ? "Anual" : "Período"
+                      })`
+                      : "Custos Fixos (IPVA/Multas)"}
+                    <span className="ml-1 text-[9px] opacity-70">({format(new Date(), 'dd/MM')})</span>
+                  </span>
+                </div>
+                <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </Card>
+            )}
+          </div>
 
       {/* Productivity Coach */}
       {(() => {
@@ -1461,6 +1502,9 @@ function HomeScreen({
           </div>
         );
       })()}
+
+        </div>
+      </details>
 
       {/* Chart */}
       <Card className="p-0 pt-6 border-zinc-100 shadow-sm">
@@ -1687,6 +1731,7 @@ function AddEarningScreen({
   const [food, setFood] = useState(editingEarning?.foodCost?.toString() || "");
   const [otherCost, setOtherCost] = useState(editingEarning?.otherCost?.toString() || "");
   const [km, setKm] = useState(editingEarning?.km?.toString() || "");
+  const [trips, setTrips] = useState(editingEarning?.trips?.toString() || "");
   const [hours, setHours] = useState(editingEarning?.hours?.toString() || "");
   const [showNewPlatformInput, setShowNewPlatformInput] = useState(false);
   const [newPlatformName, setNewPlatformName] = useState("");
@@ -1734,6 +1779,7 @@ function AddEarningScreen({
       foodCost: food ? Number(food) : undefined,
       otherCost: otherCost ? Number(otherCost) : undefined,
       km: km ? Number(km) : undefined,
+      trips: trips ? Number(trips) : undefined,
       hours: hours ? Number(hours) : undefined
     });
   };
@@ -1835,8 +1881,9 @@ function AddEarningScreen({
         <Input label="Gasto com Combustível" type="number" prefix="R$" value={fuel} onChange={setFuel} placeholder="0,00" />
         <Input label="🍽️  Alimentação (Opcional)" type="number" prefix="R$" value={food} onChange={setFood} placeholder="0,00" />
         <Input label="📦  Outros Gastos (Opcional)" type="number" prefix="R$" value={otherCost} onChange={setOtherCost} placeholder="0,00" />
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="KM Rodados" type="number" value={km} onChange={setKm} placeholder="0" />
+        <div className="grid grid-cols-3 gap-2">
+          <Input label="KM Rodados" type="number" value={km} onChange={setKm} placeholder="Ex: 120" />
+          <Input label="Corridas" type="number" value={trips} onChange={setTrips} placeholder="Ex: 15" />
           <Input label="Horas Trabs" type="number" value={hours} onChange={setHours} placeholder="Ex: 8.5" />
         </div>
 
