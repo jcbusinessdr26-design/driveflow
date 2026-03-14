@@ -23,6 +23,8 @@ import {
   Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 import {
   format,
   startOfDay,
@@ -67,6 +69,14 @@ function parseLocalNumber(val: any): number {
   if (typeof val === 'number') return val;
   const parsed = Number(String(val).replace(',', '.'));
   return isNaN(parsed) ? 0 : parsed;
+}
+
+function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  // Handles "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss..."
+  const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const [year, month, day] = datePart.split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
 
 // --- Types ---
@@ -464,8 +474,8 @@ export default function App() {
         break;
       case "personalizado":
         if (!customRange.start || !customRange.end) return { start: startOfDay(now), end: endOfDay(now) };
-        start = parseISO(customRange.start);
-        end = parseISO(customRange.end);
+        start = startOfDay(parseLocalDate(customRange.start));
+        end = endOfDay(parseLocalDate(customRange.end));
         break;
       default:
         return { start: startOfDay(now), end: endOfDay(now) };
@@ -476,15 +486,17 @@ export default function App() {
   // Filter Logic
   const filteredEarnings = useMemo(() => {
     return earnings.filter(e => {
-      const date = parseISO(e.date);
+      const date = parseLocalDate(e.date);
       return isWithinInterval(date, { start: filterRange.start, end: filterRange.end });
     });
   }, [earnings, filterRange]);
 
   const filteredMaintenance = useMemo(() => {
-    // Similar logic for maintenance if needed, or just show all
-    return maintenance;
-  }, [maintenance]);
+    return maintenance.filter(m => {
+      const date = parseLocalDate(m.date);
+      return isWithinInterval(date, { start: filterRange.start, end: filterRange.end });
+    });
+  }, [maintenance, filterRange]);
 
   const stats = useMemo(() => {
     const totalEarned = filteredEarnings.reduce((acc, curr) => acc + (curr.totalEarned || 0), 0);
@@ -495,32 +507,34 @@ export default function App() {
     const totalTrips = filteredEarnings.reduce((acc, curr) => acc + (curr.trips || 0), 0);
     const totalHours = filteredEarnings.reduce((acc, curr) => acc + (curr.hours || 0), 0);
 
+    // Maintenance in the period (only realized)
+    const totalMaintenance = filteredMaintenance
+      .filter(m => m.status === "Realizada")
+      .reduce((acc, curr) => acc + (curr.value || 0), 0);
+
+    // Unique days worked (dates with at least one record)
+    const uniqueDates = new Set(filteredEarnings.map(e => e.date));
+    const workedDays = uniqueDates.size;
+
     let autoExpenses = 0;
-    let autoExpensesDays = 0;
-
-    // Use the minimum between filterRange.end and today to not charge future un-accrued rent
-    const now = new Date();
-    const effectiveEndDate = isAfter(filterRange.end, now) ? now : filterRange.end;
-
+    
+    // Proportional Rent based on worked days (not calendar days)
     if (user?.vehicleType === "Alugado" && user.weeklyRent) {
       const weekly = parseLocalNumber(user.weeklyRent);
-      const days = differenceInCalendarDays(effectiveEndDate, filterRange.start) + 1;
-      autoExpensesDays = Math.max(0, days);
-      autoExpenses = (weekly / 7) * autoExpensesDays;
+      const dailyRent = weekly / 7;
+      autoExpenses = dailyRent * workedDays;
     }
 
+    // Proportional IPVA/Fines based on worked days
     if (user?.vehicleType === "Próprio") {
       const ipva = parseLocalNumber(user.ipva);
       const fines = parseLocalNumber(user.fines);
       const yearDays = 365;
-      const days = differenceInCalendarDays(effectiveEndDate, filterRange.start) + 1;
-      autoExpensesDays = Math.max(0, days);
-      
-      autoExpenses = (ipva / yearDays) * autoExpensesDays;
-      autoExpenses += fines;
+      const dailyIpva = ipva / yearDays;
+      autoExpenses = (dailyIpva * workedDays) + fines; // Assuming fines apply if any work is done in period, or maybe better to just add them. We'll keep them as total for the period.
     }
 
-    const rawNetProfit = totalEarned - totalFuel - totalFood - totalOther - autoExpenses;
+    const rawNetProfit = totalEarned - totalFuel - totalFood - totalOther - totalMaintenance - autoExpenses;
     const netProfit = isNaN(rawNetProfit) ? 0 : rawNetProfit;
     
     const gainPerKm = totalKm > 0 ? netProfit / totalKm : 0;
@@ -528,10 +542,10 @@ export default function App() {
     const avgNetPerTrip = totalTrips > 0 ? netProfit / totalTrips : 0;
 
     return { 
-      totalEarned, totalFuel, totalFood, totalOther, totalKm, totalTrips, totalHours, 
-      netProfit, autoExpenses, autoExpensesDays, gainPerKm, gainPerHour, avgNetPerTrip 
+      totalEarned, totalFuel, totalFood, totalOther, totalKm, totalTrips, totalHours, totalMaintenance, workedDays,
+      netProfit, autoExpenses, autoExpensesDays: workedDays, gainPerKm, gainPerHour, avgNetPerTrip 
     };
-  }, [filteredEarnings, user, filter, customRange, filterRange]);
+  }, [filteredEarnings, filteredMaintenance, user]);
 
   const hasTodayMaintenance = useMemo(() => {
     if (!maintenanceAlertsEnabled) return false;
@@ -1192,36 +1206,58 @@ function HomeScreen({
   const years = Array.from({ length: 16 }, (_, i) => 2025 + i);
 
   const handleExport = () => {
-    // CSV Header
-    const headers = ["Data", "Total Bruto", "Combustivel", "Alimentacao", "Outros", "KM", "Corridas", "Horas"].join(";");
-    const rows = earnings.map(e => [
-      format(parseISO(e.date), 'dd/MM/yyyy'),
-      e.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      e.fuelCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      (e.foodCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      (e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235); // blue-600
+    doc.text("Relatório DriverFlow", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Motorista: ${user?.name}`, 14, 28);
+    doc.text(`Período: ${format(filterRange.start, 'dd/MM/yyyy')} até ${format(filterRange.end, 'dd/MM/yyyy')}`, 14, 34);
+    
+    // Earnings Table
+    const tableHeaders = [["Data", "Bruto", "Combustível", "Alimentação", "Outros", "KM", "Corridas", "Horas"]];
+    const tableData = earnings.map(e => [
+      format(parseLocalDate(e.date), 'dd/MM/yyyy'),
+      `R$ ${e.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      `R$ ${e.fuelCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      `R$ ${(e.foodCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      `R$ ${(e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       e.km || 0,
       e.trips || 0,
       e.hours || 0
-    ].join(";"));
-    
-    // Summary Row
-    const summaryHeader = ["", "LIQUIDO", "BRUTO", "CUSTOS OPE.", "CUSTOS FIXOS"].join(";");
-    const summaryRow = ["", 
-      stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      (stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-    ].join(";");
+    ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows, "", summaryHeader, summaryRow].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `driverflow_relatorio_${filter}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    (doc as any).autoTable({
+      startY: 40,
+      head: tableHeaders,
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+      styles: { fontSize: 8 },
+    });
+
+    // Summary
+    const finalY = (doc as any).lastAutoTable.cursor.y + 10;
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text("Resumo Financeiro", 14, finalY);
+    
+    doc.setFontSize(10);
+    doc.text(`Total Bruto: R$ ${stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 8);
+    doc.text(`Custos Operacionais: R$ ${(stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 14);
+    doc.text(`Custos Fixos (Aluguel/IPVA): R$ ${stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 20);
+    
+    doc.setFontSize(12);
+    const isPositive = stats.netProfit >= 0;
+    if (isPositive) doc.setTextColor(16, 185, 129); // emerald-600
+    else doc.setTextColor(244, 63, 94); // rose-600
+    doc.text(`LUCRO LÍQUIDO: R$ ${stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 30);
+
+    doc.save(`driverflow_relatorio_${filter}.pdf`);
   };
 
   return (
@@ -1354,7 +1390,7 @@ function HomeScreen({
 
       {/* Main Stats */}
       {(() => {
-        const displayProfit = Math.max(0, stats.netProfit);
+        const displayProfit = stats.netProfit;
         const isPositive = displayProfit >= 0;
         return (
           <Card className={cn(
@@ -1388,7 +1424,7 @@ function HomeScreen({
 
       {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
-        const achievedProfit = Math.max(0, stats.netProfit);
+        const achievedProfit = stats.netProfit;
         const metaProgress = Math.min(100, Math.max(0, (achievedProfit / goal) * 100));
         const remainingGoal = Math.max(0, goal - achievedProfit);
         
@@ -1452,7 +1488,7 @@ function HomeScreen({
           </Card>
           <Card className="flex flex-col gap-1 p-3">
             <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gastos</p>
-            <p className="text-sm font-black text-rose-600 line-clamp-1">- R$ {(stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
+            <p className="text-sm font-black text-rose-600 line-clamp-1">- R$ {(stats.totalFuel + stats.totalFood + stats.totalOther + stats.totalMaintenance).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
           </Card>
           <Card className="flex flex-col gap-1 p-3">
             <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">KM</p>
@@ -1466,8 +1502,8 @@ function HomeScreen({
               <Wrench className="w-4 h-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
                 {user?.vehicleType === "Alugado"
-                  ? `Aluguel (${filter === "dia" ? "Diário" : filter === "semana" ? "Semanal" : filter === "mês" ? "Mensal" : filter === "trimestre" ? "Trimestral" : filter === "semestre" ? "Semestral" : filter === "anual" ? "Anual" : "Período"})`
-                  : "Custos Fixos"}
+                  ? `Aluguel (${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})`
+                  : `Custos Fixos (${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})`}
               </span>
             </div>
             <p className="text-sm font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -1520,21 +1556,23 @@ function HomeScreen({
                 <p className="text-base font-black text-purple-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </Card>
             )}
+            {stats.totalMaintenance > 0 && (
+              <Card className="flex flex-col gap-1.5 p-4">
+                <div className="flex items-center gap-1.5 text-rose-500">
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Oficina</span>
+                </div>
+                <p className="text-base font-black text-rose-600">- R$ {stats.totalMaintenance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </Card>
+            )}
             {stats.autoExpenses > 0 && (
               <Card className="col-span-2 flex items-center justify-between p-4 border-rose-100 bg-rose-50/50">
                 <div className="flex items-center gap-2 text-rose-500">
                   <Wrench className="w-4 h-4" />
                   <span className="text-xs font-bold uppercase tracking-wider">
                     {user?.vehicleType === "Alugado"
-                      ? `Aluguel do Veículo (${filter === "dia" ? "Diário" :
-                        filter === "semana" ? "Semanal" :
-                          filter === "mês" ? "Mensal" :
-                            filter === "trimestre" ? "Trimestral" :
-                              filter === "semestre" ? "Semestral" :
-                                filter === "anual" ? "Anual" : "Período"
-                      })`
-                      : "Custos Fixos (IPVA/Multas)"}
-                    <span className="ml-1 text-[9px] opacity-70">({format(new Date(), 'dd/MM')})</span>
+                      ? `Aluguel do Veículo (Ref. ${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})\n`
+                      : `Custos Fixos (Ref. ${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})\n`}
                   </span>
                 </div>
                 <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -1549,9 +1587,10 @@ function HomeScreen({
         if (goal > 0 && stats.netProfit !== undefined) {
           const remainingGoal = goal - stats.netProfit;
           const today = startOfDay(new Date());
-          const endDate = startOfDay(filterRange.end);
-          if (endDate >= today) {
-            daysRemaining = differenceInCalendarDays(endDate, today) + 1;
+          const endOfMonthDate = endOfMonth(today);
+          
+          if (endOfMonthDate >= today) {
+            daysRemaining = differenceInCalendarDays(endOfMonthDate, today) + 1;
             if (daysRemaining > 0 && remainingGoal > 0) {
               dailyGoalNeeded = remainingGoal / daysRemaining;
             }
@@ -1625,7 +1664,7 @@ function HomeScreen({
                 tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }}
                 tickFormatter={(val) => {
                   try {
-                    return format(parseISO(val), 'dd/MM');
+                    return format(parseLocalDate(val), 'dd/MM');
                   } catch (e) {
                     return val;
                   }
@@ -1644,7 +1683,7 @@ function HomeScreen({
                 formatter={(value: any) => [`R$ ${value}`, '']}
                 labelFormatter={(label) => {
                   try {
-                    return format(parseISO(label), "dd 'de' MMMM", { locale: ptBR });
+                    return format(parseLocalDate(label), "dd 'de' MMMM", { locale: ptBR });
                   } catch (e) {
                     return label;
                   }
@@ -1716,7 +1755,7 @@ function HomeScreen({
                           {platforms.map(p => p.name).join(" + ")}
                         </p>
                         <p className="text-[10px] text-zinc-400 font-medium">
-                          {item_e.date ? format(parseISO(item_e.date), "dd/MM/yyyy", { locale: ptBR }) : ""}
+                          {item_e.date ? format(parseLocalDate(item_e.date), "dd/MM/yyyy", { locale: ptBR }) : ""}
                           {item_e.km ? ` · ${item_e.km} km` : ""}
                         </p>
                       </div>
@@ -2155,7 +2194,7 @@ function MaintenanceScreen({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-black text-zinc-900 truncate leading-tight">{m.service}</p>
                   <p className="text-[10px] text-zinc-400 font-medium mt-0.5">
-                    {m.type} · {format(parseISO(m.date), "dd/MM/yyyy")}
+                    {m.type} · {format(parseLocalDate(m.date), "dd/MM/yyyy")}
                   </p>
                 </div>
                 <span className={cn(
