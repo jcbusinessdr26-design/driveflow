@@ -214,7 +214,8 @@ const Button = ({
     primary: "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20",
     secondary: "bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200",
     danger: "bg-red-500 hover:bg-red-600 text-white",
-    ghost: "bg-transparent hover:bg-zinc-100 text-zinc-500"
+    ghost: "bg-transparent hover:bg-zinc-100 text-zinc-500",
+    white: "bg-white hover:bg-zinc-50 text-blue-600 shadow-lg shadow-blue-900/10"
   };
 
   return (
@@ -239,25 +240,31 @@ const Input = ({
   value,
   onChange,
   placeholder,
-  prefix
+  prefix,
+  theme = "light"
 }: {
   label?: string;
   type?: string;
   value: string | number;
-  onChange: (val: string) => void; placeholder?: string;
+  onChange: (val: string) => void; 
+  placeholder?: string;
   prefix?: string;
+  theme?: "light" | "dark";
 }) => (
   <div className="flex flex-col gap-1.5 w-full">
-    {label && <label className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.15em] mb-0.5">{label}</label>}
+    {label && <label className={cn("text-[11px] font-black uppercase tracking-[0.15em] mb-0.5", theme === "dark" ? "text-blue-100" : "text-zinc-500")}>{label}</label>}
     <div className="relative flex items-center">
-      {prefix && <span className="absolute left-4 text-zinc-400 font-medium">{prefix}</span>}
+      {prefix && <span className={cn("absolute left-4 font-medium", theme === "dark" ? "text-blue-200" : "text-zinc-400")}>{prefix}</span>}
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-3.5 text-zinc-900 focus:outline-none focus:border-blue-500 transition-all placeholder:text-zinc-400",
+          "w-full border rounded-2xl px-4 py-3.5 focus:outline-none transition-all",
+          theme === "dark"
+            ? "bg-white/10 border-white/20 text-white focus:border-white focus:ring-4 focus:ring-white/10 placeholder:text-blue-200"
+            : "bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-blue-500 placeholder:text-zinc-400",
           prefix && "pl-12"
         )}
       />
@@ -559,7 +566,7 @@ export default function App() {
                         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
                       </div>
                       <div className="ml-[-12px]">
-                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.5</span></h1>
+                        <h1 className="text-xl font-black tracking-tight text-white line-clamp-1">DriverFlow <span className="text-[8px] font-normal opacity-40">v3.6</span></h1>
                         <p className="text-[11px] text-blue-100 font-medium">Olá, {user?.name} 👋</p>
                       </div>
                     </div>
@@ -850,35 +857,35 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col items-center justify-center min-h-screen p-8"
+      className="flex flex-col items-center justify-center min-h-screen p-8 bg-gradient-to-r from-blue-700 to-blue-500"
     >
-      <div className="w-[155px] h-[155px] rounded-3xl overflow-hidden" style={{ marginBottom: '-15px' }}>
+      <div className="w-[155px] h-[155px] rounded-3xl overflow-hidden shadow-2xl shadow-blue-900/40" style={{ marginBottom: '-15px' }}>
         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
       </div>
-      <h1 className="text-4xl font-bold mb-2 tracking-tighter text-center text-zinc-900">DriverFlow</h1>
-      <p className="text-zinc-500 mb-8 max-w-[280px] text-center">Gestão inteligente para motoristas de aplicativo.</p>
+      <h1 className="text-4xl font-bold mb-2 tracking-tighter text-center text-white">DriverFlow</h1>
+      <p className="text-blue-100 mb-8 max-w-[280px] text-center font-medium">Gestão inteligente para motoristas de aplicativo.</p>
 
       <div className="w-full space-y-4 max-w-sm">
         {error && (
-          <div className="p-3 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-xs font-medium">
+          <div className="p-3 rounded-2xl bg-rose-500/20 border border-rose-500/30 text-white text-xs font-medium backdrop-blur-sm">
             {error}
           </div>
         )}
-        <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" />
-        <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+        <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" />
+        <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" />
 
         <div className="flex items-center gap-2 px-1 pb-1">
           <button
             onClick={() => setRememberMe(!rememberMe)}
             className={cn(
               "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all",
-              rememberMe ? "bg-blue-600 border-blue-600" : "bg-white border-zinc-200"
+              rememberMe ? "bg-white border-white" : "bg-white/10 border-white/20"
             )}
           >
-            {rememberMe && <Check className="w-3.5 h-3.5 text-white" strokeWidth={4} />}
+            {rememberMe && <Check className="w-3.5 h-3.5 text-blue-600" strokeWidth={4} />}
           </button>
           <span 
-            className="text-[10px] font-black text-zinc-500 uppercase tracking-widest cursor-pointer select-none" 
+            className="text-[10px] font-black text-blue-100 uppercase tracking-widest cursor-pointer select-none" 
             onClick={() => setRememberMe(!rememberMe)}
           >
             Manter conectado
@@ -887,18 +894,19 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
         <Button
           onClick={handleAuth}
-          className="w-full"
+          className="w-full text-blue-700"
+          variant="white"
           disabled={loading || !email || !password}
         >
           {loading ? "Carregando..." : (isSignUp ? "Criar Conta" : "Entrar")}
         </Button>
       </div>
 
-      <p className="mt-8 text-xs text-zinc-500 text-center">
+      <p className="mt-8 text-xs text-blue-100 text-center">
         {isSignUp ? "Já tem uma conta?" : "Não tem uma conta?"} {" "}
         <button
           onClick={() => setIsSignUp(!isSignUp)}
-          className="text-blue-500 font-bold hover:underline"
+          className="text-white font-bold hover:underline transition-all"
         >
           {isSignUp ? "Entrar" : "Cadastre-se"}
         </button>
