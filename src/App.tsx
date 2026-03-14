@@ -1451,7 +1451,7 @@ function HomeScreen({
                     <TrendingUp className="w-4 h-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">
                       Meta Diária Necessária
-                      <span className="ml-1 text-[9px] opacity-70">({daysRemaining} {daysRemaining === 1 ? "dia" : "dias"})</span>
+                      <span className="ml-1 text-[9px] opacity-70">(hoje é {format(new Date(), 'dd/MM/yyyy')})</span>
                     </span>
                   </div>
                   <p className="text-base font-black text-purple-700">R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
