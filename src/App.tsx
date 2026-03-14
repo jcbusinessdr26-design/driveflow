@@ -2352,7 +2352,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
             <ProfileItem onClick={() => setActiveSection("vehicle")} icon={<Fuel className="w-4 h-4" />} label="Meu Veículo" />
             <ProfileItem onClick={() => setActiveSection("platforms")} icon={<CarFront className="w-4 h-4" />} label="Minhas Plataformas" />
             <ProfileItem onClick={() => setActiveSection("goals")} icon={<TrendingUp className="w-4 h-4" />} label="Minhas Metas" />
-            <ProfileItem onClick={() => setActiveSection("notifications")} icon={<Calendar className="w-4 h-4" />} label="Meus dias" />
+            <ProfileItem onClick={() => setActiveSection("notifications")} icon={<Bell className="w-4 h-4" />} label="Notificações" />
           </Card>
         </div>
       )}
