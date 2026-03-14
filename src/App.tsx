@@ -691,6 +691,7 @@ export default function App() {
                   )}
                   {activeTab === "maintenance" && (
                     <MaintenanceScreen
+                      user={user}
                       maintenance={maintenance}
                       onAdd={async (m) => {
                         const { data: { session } } = await supabase.auth.getSession();
@@ -1923,11 +1924,13 @@ function AddEarningScreen({
 }
 
 function MaintenanceScreen({
+  user,
   maintenance,
   onAdd,
   onUpdate,
   onDelete
 }: {
+  user: UserProfile | null;
   maintenance: Maintenance[];
   onAdd: (m: Maintenance) => void;
   onUpdate: (m: Maintenance) => void;
@@ -1936,8 +1939,10 @@ function MaintenanceScreen({
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const isRented = user?.vehicleType === "Alugado";
+
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [type, setType] = useState<"Manutenção" | "Revisão">("Manutenção");
+  const [type, setType] = useState<string>(isRented ? "Outros" : "Manutenção");
   const [status, setStatus] = useState<"Realizada" | "Pendente">("Pendente");
   const [service, setService] = useState("");
   const [value, setValue] = useState("");
@@ -1958,7 +1963,7 @@ function MaintenanceScreen({
     setService("");
     setValue("");
     setDate(format(new Date(), "yyyy-MM-dd"));
-    setType("Manutenção");
+    setType(isRented ? "Outros" : "Manutenção");
     setStatus("Pendente");
   };
 
@@ -1990,7 +1995,9 @@ function MaintenanceScreen({
   return (
     <div className="space-y-6 pb-12">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">Manutenção</h2>
+        <h2 className="text-2xl font-bold tracking-tight">
+          {isRented ? "Imprevistos e Reparos" : "Manutenção"}
+        </h2>
         <Button
           variant="ghost"
           onClick={() => isAdding ? resetForm() : setIsAdding(true)}
@@ -2014,12 +2021,12 @@ function MaintenanceScreen({
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Tipo</label>
               <div className="flex gap-2">
-                {["Manutenção", "Revisão"].map((t) => (
+                {(isRented ? ["Pneu/Borracharia", "Lâmpadas", "Outros"] : ["Manutenção", "Revisão"]).map((t) => (
                   <button
                     key={t}
-                    onClick={() => setType(t as any)}
+                    onClick={() => setType(t)}
                     className={cn(
-                      "flex-1 p-3 rounded-xl border text-xs font-bold transition-all",
+                      "flex-1 p-2 rounded-xl border text-[10px] font-bold transition-all",
                       type === t ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-white border-zinc-200 text-zinc-500"
                     )}
                   >
@@ -2028,7 +2035,7 @@ function MaintenanceScreen({
                 ))}
               </div>
             </div>
-            <Input label="Serviço Realizado" value={service} onChange={setService} placeholder="Ex: Troca de Óleo" />
+            <Input label={isRented ? "O que aconteceu?" : "Serviço Realizado"} value={service} onChange={setService} placeholder={isRented ? "Ex: Furo no pneu traseiro" : "Ex: Troca de Óleo"} />
             <Input label="Valor do Serviço" type="number" prefix="R$" value={value} onChange={setValue} placeholder="0,00" />
             {/* Status */}
             <div className="flex flex-col gap-1.5">
@@ -2063,7 +2070,9 @@ function MaintenanceScreen({
         {maintenance.length === 0 ? (
           <div className="text-center py-12">
             <Wrench className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
-            <p className="text-zinc-500">Nenhum registro de manutenção.</p>
+            <p className="text-zinc-500">
+              {isRented ? "Nenhum imprevisto registrado." : "Nenhum registro de manutenção."}
+            </p>
           </div>
         ) : (
           maintenance.map(m => (
