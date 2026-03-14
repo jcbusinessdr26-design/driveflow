@@ -37,7 +37,8 @@ import {
   isWithinInterval,
   parseISO,
   differenceInDays,
-  differenceInCalendarDays
+  differenceInCalendarDays,
+  isAfter
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -480,12 +481,15 @@ export default function App() {
     const totalHours = filteredEarnings.reduce((acc, curr) => acc + (curr.hours || 0), 0);
 
     let autoExpenses = 0;
-
     let autoExpensesDays = 0;
+
+    // Use the minimum between filterRange.end and today to not charge future un-accrued rent
+    const now = new Date();
+    const effectiveEndDate = isAfter(filterRange.end, now) ? now : filterRange.end;
 
     if (user?.vehicleType === "Alugado" && user.weeklyRent) {
       const weekly = Number(user.weeklyRent);
-      const days = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
+      const days = differenceInCalendarDays(effectiveEndDate, filterRange.start) + 1;
       autoExpensesDays = Math.max(0, days);
       autoExpenses = (weekly / 7) * autoExpensesDays;
     }
@@ -494,8 +498,8 @@ export default function App() {
       const ipva = Number(user.ipva || 0);
       const fines = Number(user.fines || 0);
       const yearDays = 365;
-      const filterDays = differenceInCalendarDays(filterRange.end, filterRange.start) + 1;
-      autoExpensesDays = Math.max(0, filterDays);
+      const days = differenceInCalendarDays(effectiveEndDate, filterRange.start) + 1;
+      autoExpensesDays = Math.max(0, days);
       
       autoExpenses = (ipva / yearDays) * autoExpensesDays;
       autoExpenses += fines;
@@ -1288,7 +1292,8 @@ function HomeScreen({
 
       {/* Main Stats */}
       {(() => {
-        const isPositive = stats.netProfit >= 0;
+        const displayProfit = Math.max(0, stats.netProfit);
+        const isPositive = displayProfit >= 0;
         return (
           <Card className={cn(
             "relative overflow-hidden text-white shadow-xl",
@@ -1304,7 +1309,7 @@ function HomeScreen({
                     Lucro Líquido
                   </p>
                   <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
-                    R$ {stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    R$ {displayProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </h2>
                   <p className="text-[10px] mt-2 opacity-90 leading-tight pr-8">
                     Já com combustível, alimentação, outros gastos e aluguel descontados.
@@ -1322,8 +1327,8 @@ function HomeScreen({
       {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
         const achievedProfit = Math.max(0, stats.netProfit);
-        const remainingGoal = goal - stats.netProfit;
         const metaProgress = Math.min(100, Math.max(0, (achievedProfit / goal) * 100));
+        const remainingGoal = Math.max(0, goal - achievedProfit);
         
         return (
           <Card className="p-4 space-y-3">
