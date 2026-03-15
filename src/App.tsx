@@ -716,6 +716,7 @@ export default function App() {
                       filter={filter}
                       filterRange={filterRange}
                       setFilter={setFilter}
+                      chartData={chartData}
                       earnings={filteredEarnings}
                       goal={user?.monthlyGoal || 0}
                       customRange={customRange}
@@ -1252,6 +1253,7 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
 function HomeScreen({
   user,
   stats,
+  chartData,
   filter,
   setFilter,
   earnings,
@@ -1271,6 +1273,7 @@ function HomeScreen({
 }: {
   user: UserProfile | null;
   stats: any;
+  chartData: any[];
   filter: FilterType;
   setFilter: (f: FilterType) => void;
   earnings: Earning[];
