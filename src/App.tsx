@@ -1709,7 +1709,7 @@ function HomeScreen({
               <Card className="flex flex-col gap-1.5 p-4 border-emerald-100 bg-emerald-50/50">
                 <div className="flex items-center gap-1.5 text-emerald-600">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos com Promoções</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos de Promoções</span>
                 </div>
                 <p className="text-base font-black text-emerald-700">R$ {stats.totalPromo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </Card>
@@ -1804,7 +1804,7 @@ function HomeScreen({
                   <div className="flex items-center gap-2 text-purple-600">
                     <TrendingUp className="w-4 h-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">
-                      Meta Diária Necessária
+                      Meta Diária Necessária de Lucro Líquido
                       <span className="ml-1 text-[9px] opacity-70">(hoje é {format(new Date(), 'dd/MM/yyyy')})</span>
                     </span>
                   </div>
@@ -2249,7 +2249,7 @@ function AddEarningScreen({
           tooltip="Gastos diversos como estacionamento, lavagem, etc."
         />
         <Input 
-          label="✨ Ganhos com promoções" 
+          label="✨ Ganhos de promoções" 
           type="number" 
           prefix="R$" 
           value={promo} 
