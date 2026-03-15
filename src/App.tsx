@@ -1600,6 +1600,11 @@ function HomeScreen({
               <TrendingUp className={cn("w-5 h-5 mb-1", remainingGoal > 0 ? "text-blue-500" : "text-emerald-500")} />
             </div>
             
+            <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider mb-1">
+              <p className="text-zinc-500">Progresso</p>
+              <p className={remainingGoal > 0 ? "text-blue-600" : "text-emerald-600"}>{metaProgress.toFixed(1)}%</p>
+            </div>
+            
             <div className="h-2.5 bg-zinc-100 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
