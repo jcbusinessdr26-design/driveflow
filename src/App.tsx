@@ -1320,8 +1320,24 @@ function HomeScreen({
   onEditEarning: (e: Earning) => void;
   onDeleteEarning: (id: string) => void;
 }) {
-  const progress = goal > 0
-    ? Math.min((stats.netProfit / goal) * 100, 100)
+  // Calculate the goal specific to the selected filter period
+  const currentGoal = useMemo(() => {
+    if (goal <= 0) return 0;
+    switch (filter) {
+      case 'dia': return goal / 30;
+      case 'semana': return (goal / 30) * 7;
+      case 'trimestre': return goal * 3;
+      case 'semestre': return goal * 6;
+      case 'anual': return goal * 12;
+      case 'mês':
+      case 'personalizado':
+      default:
+        return goal;
+    }
+  }, [goal, filter]);
+
+  const progress = currentGoal > 0
+    ? Math.min((stats.netProfit / currentGoal) * 100, 100)
     : 0;
 
   // Internal goal used ONLY for the "Trips Remaining" projection
@@ -1561,15 +1577,15 @@ function HomeScreen({
       {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
         const achievedProfit = stats.netProfit;
-        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / goal) * 100));
-        const remainingGoal = Math.max(0, goal - achievedProfit);
+        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / currentGoal) * 100));
+        const remainingGoal = Math.max(0, currentGoal - achievedProfit);
         
         return (
           <Card className="p-4 space-y-3">
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {goal.toLocaleString('pt-BR')}
+                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </p>
                 {remainingGoal > 0 ? (
                   <p className="text-xl font-black text-zinc-900 tracking-tight">
