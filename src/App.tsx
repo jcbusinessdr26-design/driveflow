@@ -142,6 +142,13 @@ function getNetProfit(params: {
   );
 }
 
+function getRemainingDaysInRange(end: Date): number {
+  const today = startOfDay(new Date());
+  if (isAfter(today, end)) return 0;
+  // +1 because if end is today, it's 1 day remaining
+  return differenceInCalendarDays(end, today) + 1;
+}
+
 // --- Types ---
 type Platform = string;
 
@@ -629,14 +636,23 @@ export default function App() {
 
     // Fixed Costs
     let autoExpenses = 0;
+    let autoExpensesDays = workedDays;
     
     if (user?.vehicleType === "Alugado") {
-      autoExpenses = getRentCostForPeriod(parseLocalNumber(user.weeklyRent), workedDays);
+      // New logic: Show remaining rent for the current period (Today to end of filter range)
+      const remainingDays = getRemainingDaysInRange(filterRange.end);
+      autoExpenses = (parseLocalNumber(user.weeklyRent) / 7) * remainingDays;
+      autoExpensesDays = remainingDays;
     } else if (user?.vehicleType === "Próprio") {
       const ipva = getIpvaCostForPeriod(parseLocalNumber(user.ipva), workedDays);
       const fines = parseLocalNumber(user.fines);
-      autoExpenses = ipva + fines; // Fines applied as single total if period has work
+      autoExpenses = ipva + fines;
     }
+
+    // Adjust netProfit: historical earnings - historical costs - (daily rent * worked days)
+    const historicalRent = user?.vehicleType === "Alugado" 
+      ? (parseLocalNumber(user.weeklyRent) / 7) * workedDays 
+      : (getIpvaCostForPeriod(parseLocalNumber(user.ipva), workedDays) + parseLocalNumber(user.fines));
 
     const rawNetProfit = getNetProfit({
       totalEarned,
@@ -644,7 +660,7 @@ export default function App() {
       food: variableCosts.food,
       other: variableCosts.other,
       maintenance: totalMaintenance,
-      fixedCosts: autoExpenses
+      fixedCosts: historicalRent
     });
     const netProfit = isNaN(rawNetProfit) ? 0 : rawNetProfit;
     
@@ -692,7 +708,7 @@ export default function App() {
       workedDays,
       netProfit, 
       autoExpenses, 
-      autoExpensesDays: workedDays, 
+      autoExpensesDays, 
       gainPerKm, 
       gainPerHour, 
       avgNetPerTrip,
@@ -1759,7 +1775,7 @@ function HomeScreen({
                   <Wrench className="w-4 h-4" />
                   <span className="text-xs font-bold uppercase tracking-wider">
                     {user?.vehicleType === "Alugado"
-                      ? `Aluguel do Veículo (Ref. ${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})\n`
+                      ? `Aluguel Restante (Ref. ${stats.autoExpensesDays} ${stats.autoExpensesDays === 1 ? 'dia' : 'dias'})\n`
                       : `Custos Fixos (Ref. ${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})\n`}
                   </span>
                 </div>
@@ -1934,7 +1950,8 @@ function HomeScreen({
           ) : (
             earnings.map(item_e => {
               const platforms = item_e.platformDetails || [];
-              const totalExpenses = item_e.fuelCost + (item_e.foodCost || 0) + (item_e.otherCost || 0);
+              const dailyRent = user?.vehicleType === "Alugado" ? parseLocalNumber(user.weeklyRent) / 7 : 0;
+              const totalExpenses = item_e.fuelCost + (item_e.foodCost || 0) + (item_e.otherCost || 0) + dailyRent;
               const netProfit = item_e.totalEarned - totalExpenses;
 
               return (
@@ -2013,7 +2030,16 @@ function HomeScreen({
                           <div className="w-px h-6 bg-zinc-100" />
                           <div className="text-center">
                             <p className="text-[9px] text-zinc-400 uppercase font-bold">Outros</p>
-                            <p className="text-[11px] font-black text-rose-500">- R$ {(item_e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-[11px] font-black text-purple-500">- R$ {(item_e.otherCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          </div>
+                        </>
+                      )}
+                      {user?.vehicleType === "Alugado" && (
+                        <>
+                          <div className="w-px h-6 bg-zinc-100" />
+                          <div className="text-center">
+                            <p className="text-[9px] text-zinc-400 uppercase font-bold">Aluguel</p>
+                            <p className="text-[11px] font-black text-rose-500">- R$ {(parseLocalNumber(user.weeklyRent) / 7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                           </div>
                         </>
                       )}
