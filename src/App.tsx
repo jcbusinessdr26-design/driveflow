@@ -1800,15 +1800,27 @@ function HomeScreen({
                 <p className="text-xl font-black text-blue-700">R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span></p>
               </Card>
               {dailyGoalNeeded > 0 && (
-                <Card className="col-span-2 flex items-center justify-between p-4 border-purple-100 bg-purple-50/50">
-                  <div className="flex items-center gap-2 text-purple-600">
-                    <TrendingUp className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">
-                      Meta Diária Necessária de Lucro Líquido
-                      <span className="ml-1 text-[9px] opacity-70">(hoje é {format(new Date(), 'dd/MM/yyyy')})</span>
-                    </span>
+                <Card className="col-span-2 p-5 border-purple-100 bg-purple-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 bg-purple-100 rounded-2xl shrink-0">
+                      <TrendingUp className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-black text-purple-500 uppercase tracking-[0.1em]">Meta Diária Necessária</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-bold text-white bg-purple-500/80 px-1.5 py-0.5 rounded-md uppercase tracking-wide">Lucro Líquido</span>
+                          <span className="text-[9px] font-medium text-purple-400">hoje é {format(new Date(), 'dd/MM/yyyy')}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-base font-black text-purple-700">R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <div className="text-left sm:text-right">
+                    <p className="text-2xl font-black text-purple-700 leading-none">
+                      R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mt-1">por dia</p>
+                  </div>
                 </Card>
               )}
             </div>
