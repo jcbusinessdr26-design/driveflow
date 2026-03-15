@@ -1457,7 +1457,7 @@ function HomeScreen({
     doc.text("Resumo Financeiro", 14, finalY);
     
     doc.setFontSize(10);
-    doc.text(`Total Bruto: R$ ${stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 8);
+    doc.text(`Ganhos Brutos: R$ ${stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 8);
     doc.text(`Custos Operacionais: R$ ${(stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 14);
     doc.text(`Custos Fixos (Aluguel/IPVA): R$ ${stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 20);
     
@@ -1701,7 +1701,7 @@ function HomeScreen({
             <Card className="flex flex-col gap-1.5 p-4">
               <div className="flex items-center gap-1.5 text-zinc-400">
                 <DollarSign className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Bruto</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos Brutos</span>
               </div>
               <p className="text-base font-black text-zinc-900">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </Card>
@@ -2007,7 +2007,7 @@ function HomeScreen({
                       )}
                     </div>
                     <div className="text-center flex-shrink-0">
-                      <p className="text-[9px] text-zinc-400 uppercase font-bold">Bruto</p>
+                      <p className="text-[9px] text-zinc-400 uppercase font-bold">Ganhos Brutos</p>
                       <p className="text-[11px] font-black text-zinc-500">R$ {item_e.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
@@ -2213,7 +2213,7 @@ function AddEarningScreen({
                   );
                 })}
                 <div className="pt-2 flex justify-between items-center">
-                  <span className="text-xs font-bold text-zinc-500">Total Bruto</span>
+                  <span className="text-xs font-bold text-zinc-500">Ganhos Brutos</span>
                   <span className="text-lg font-bold text-blue-600">R$ {totalEarned.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
@@ -2521,10 +2521,29 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
     }
   };
 
-  const handleSave = () => {
+  useEffect(() => {
     if (user) {
-      onUpdate({ ...user, name, avatar });
-      setIsEditing(false);
+      setName(user.name);
+      setAvatar(user.avatar);
+      setGoal(user.monthlyGoal.toString());
+      setVehicleName(user.vehicleName || "");
+      setLicensePlate(user.licensePlate || "");
+      setVehicleType(user.vehicleType || "Alugado");
+      setWeeklyRent(user.weeklyRent?.toString() || "500");
+      setIpva(user.ipva?.toString() || "0");
+      setFines(user.fines?.toString() || "0");
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    if (user) {
+      setIsSaving(true);
+      try {
+        await onUpdate({ ...user, name, avatar });
+        setIsEditing(false);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -2747,10 +2766,18 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
           >
             <p className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Foto alterada</p>
             <Button
-              onClick={() => onUpdate({ ...user!, avatar })}
+              onClick={async () => {
+                setIsSaving(true);
+                try {
+                  await onUpdate({ ...user!, avatar });
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
               className="px-6 py-2 h-auto text-xs"
+              disabled={isSaving}
             >
-              Salvar Nova Foto
+              {isSaving ? "Salvando..." : "Salvar Nova Foto"}
             </Button>
             <button
               onClick={() => setAvatar(user?.avatar || "")}
