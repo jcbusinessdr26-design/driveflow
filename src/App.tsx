@@ -639,20 +639,19 @@ export default function App() {
     let autoExpensesDays = workedDays;
     
     if (user?.vehicleType === "Alugado") {
-      // New logic: Show remaining rent for the current period (Today to end of filter range)
       const remainingDays = getRemainingDaysInRange(filterRange.end);
-      autoExpenses = (parseLocalNumber(user.weeklyRent) / 7) * remainingDays;
+      autoExpenses = (parseLocalNumber(user?.weeklyRent) / 7) * remainingDays;
       autoExpensesDays = remainingDays;
     } else if (user?.vehicleType === "Próprio") {
-      const ipva = getIpvaCostForPeriod(parseLocalNumber(user.ipva), workedDays);
-      const fines = parseLocalNumber(user.fines);
+      const ipva = getIpvaCostForPeriod(parseLocalNumber(user?.ipva), workedDays);
+      const fines = parseLocalNumber(user?.fines);
       autoExpenses = ipva + fines;
     }
 
     // Adjust netProfit: historical earnings - historical costs - (daily rent * worked days)
     const historicalRent = user?.vehicleType === "Alugado" 
-      ? (parseLocalNumber(user.weeklyRent) / 7) * workedDays 
-      : (getIpvaCostForPeriod(parseLocalNumber(user.ipva), workedDays) + parseLocalNumber(user.fines));
+      ? (parseLocalNumber(user?.weeklyRent) / 7) * workedDays 
+      : (getIpvaCostForPeriod(parseLocalNumber(user?.ipva), workedDays) + parseLocalNumber(user?.fines));
 
     const rawNetProfit = getNetProfit({
       totalEarned,
@@ -677,9 +676,9 @@ export default function App() {
     
     let allAutoExpenses = 0;
     if (user?.vehicleType === "Alugado") {
-      allAutoExpenses = getRentCostForPeriod(parseLocalNumber(user.weeklyRent), allWorkedDays);
+      allAutoExpenses = getRentCostForPeriod(parseLocalNumber(user?.weeklyRent), allWorkedDays);
     } else if (user?.vehicleType === "Próprio") {
-      allAutoExpenses = getIpvaCostForPeriod(parseLocalNumber(user.ipva), allWorkedDays) + parseLocalNumber(user.fines);
+      allAutoExpenses = getIpvaCostForPeriod(parseLocalNumber(user?.ipva), allWorkedDays) + parseLocalNumber(user?.fines);
     }
 
     const allNetProfit = getNetProfit({
@@ -736,14 +735,14 @@ export default function App() {
       const current = grouped.get(key) || { date: key, totalEarned: 0, totalCosts: 0 };
       current.totalEarned += e.totalEarned || 0;
       
-      const dailyRent = user?.vehicleType === "Alugado" ? parseLocalNumber(user.weeklyRent) / 7 : 0;
+      const dailyRent = user?.vehicleType === "Alugado" ? parseLocalNumber(user?.weeklyRent) / 7 : 0;
       current.totalCosts += (e.fuelCost || 0) + (e.foodCost || 0) + (e.otherCost || 0) + dailyRent;
 
       grouped.set(key, current);
     });
 
     return Array.from(grouped.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredEarnings]);
+  }, [filteredEarnings, user]);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sora selection:bg-blue-500/30">
