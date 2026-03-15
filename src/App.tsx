@@ -1693,11 +1693,8 @@ function HomeScreen({
           </Card>
         );
       })()}
-      <details className="group">
-        <summary className="text-xs font-bold text-zinc-500 uppercase tracking-wider cursor-pointer flex items-center gap-2 mb-3 list-none p-2 rounded-xl hover:bg-zinc-100 transition-colors">
-          <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
-          Ver Detalhamento de Gastos e Perfomance
-        </summary>
+      <div className="pt-2">
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-2 mb-3">Detalhamento de Gastos e Performance</h3>
         <div className="space-y-4 pt-2 pb-2 pl-2">
           <div className="grid grid-cols-2 gap-3">
 
@@ -1820,7 +1817,7 @@ function HomeScreen({
       })()}
 
         </div>
-      </details>
+      </div>
 
       {/* Chart */}
       <Card className="p-0 pt-6 border-zinc-100 shadow-sm">
