@@ -90,15 +90,15 @@ function parseLocalDate(dateStr: string): Date {
 
 // --- Pure Calculation Functions ---
 function getWorkedDays(earnings: Earning[]): number {
-  return new Set(
-    earnings.map(e => {
-      try {
-        return format(parseLocalDate(e.date), "yyyy-MM-dd");
-      } catch {
-        return e.date;
-      }
-    })
-  ).size;
+  const days = new Set<string>();
+
+  earnings.forEach(e => {
+    const date = parseLocalDate(e.date);
+    const normalized = format(date, "yyyy-MM-dd");
+    days.add(normalized);
+  });
+
+  return days.size;
 }
 
 function getVariableCosts(earnings: Earning[]) {
