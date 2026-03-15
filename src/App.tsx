@@ -677,11 +677,14 @@ export default function App() {
 
     const globalAvgNetPerTrip = allTotalTrips > 0 ? allNetProfit / allTotalTrips : 0;
 
+    const totalPromo = filteredEarnings.reduce((acc, curr) => acc + (curr.promoEarnings || 0), 0);
+
     return { 
       totalEarned, 
       totalFuel: variableCosts.fuel, 
       totalFood: variableCosts.food, 
       totalOther: variableCosts.other, 
+      totalPromo,
       totalKm, 
       totalTrips, 
       totalHours, 
@@ -1690,47 +1693,14 @@ function HomeScreen({
           </Card>
         );
       })()}
-
-      {/* Bloco 4: Operacional */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-3 gap-2">
-          <Card className="flex flex-col gap-1 p-3">
-            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Bruto</p>
-            <p className="text-sm font-black text-zinc-900 line-clamp-1">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
-          </Card>
-          <Card className="flex flex-col gap-1 p-3">
-            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gastos</p>
-            <p className="text-sm font-black text-rose-600 line-clamp-1">- R$ {(stats.totalFuel + stats.totalFood + stats.totalOther + stats.totalMaintenance).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
-          </Card>
-          <Card className="flex flex-col gap-1 p-3">
-            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">KM</p>
-            <p className="text-sm font-black text-blue-600 line-clamp-1">{stats.totalKm.toLocaleString('pt-BR')}</p>
-          </Card>
-        </div>
-        
-        {stats.autoExpenses > 0 && (
-          <Card className="flex items-center justify-between p-3 border-rose-100 bg-rose-50/50">
-            <div className="flex items-center gap-2 text-rose-600">
-              <Wrench className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">
-                {user?.vehicleType === "Alugado"
-                  ? `Aluguel (${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})`
-                  : `Custos Fixos (${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})`}
-              </span>
-            </div>
-            <p className="text-sm font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </Card>
-        )}
-      </div>
-
       <details className="group">
         <summary className="text-xs font-bold text-zinc-500 uppercase tracking-wider cursor-pointer flex items-center gap-2 mb-3 list-none p-2 rounded-xl hover:bg-zinc-100 transition-colors">
           <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
           Ver Detalhamento de Gastos e Perfomance
         </summary>
         <div className="space-y-4 pt-2 pb-2 pl-2">
-          {/* Old Secondary Stats */}
           <div className="grid grid-cols-2 gap-3">
+
             <Card className="flex flex-col gap-1.5 p-4">
               <div className="flex items-center gap-1.5 text-zinc-400">
                 <DollarSign className="w-3.5 h-3.5" />
@@ -1738,6 +1708,15 @@ function HomeScreen({
               </div>
               <p className="text-base font-black text-zinc-900">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </Card>
+            {stats.totalPromo > 0 && (
+              <Card className="flex flex-col gap-1.5 p-4 border-emerald-100 bg-emerald-50/50">
+                <div className="flex items-center gap-1.5 text-emerald-600">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos com Promoções</span>
+                </div>
+                <p className="text-base font-black text-emerald-700">R$ {stats.totalPromo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </Card>
+            )}
             <Card className="flex flex-col gap-1.5 p-4">
               <div className="flex items-center gap-1.5 text-orange-500">
                 <Fuel className="w-3.5 h-3.5" />
