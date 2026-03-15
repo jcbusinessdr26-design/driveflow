@@ -600,6 +600,31 @@ export default function App() {
     const gainPerHour = totalHours > 0 ? netProfit / totalHours : 0;
     const avgNetPerTrip = totalTrips > 0 ? netProfit / totalTrips : 0;
 
+    // --- Global Stable Projections ---
+    // Calculate a stable average based on ALL data to avoid fluctuations in estimates
+    const allTotalEarned = earnings.reduce((acc, curr) => acc + (curr.totalEarned || 0), 0);
+    const allVariableCosts = getVariableCosts(earnings);
+    const allTotalTrips = earnings.reduce((acc, curr) => acc + (curr.trips || 0), 0);
+    const allWorkedDays = getWorkedDays(earnings);
+    
+    let allAutoExpenses = 0;
+    if (user?.vehicleType === "Alugado") {
+      allAutoExpenses = getRentCostForPeriod(parseLocalNumber(user.weeklyRent), allWorkedDays);
+    } else if (user?.vehicleType === "Próprio") {
+      allAutoExpenses = getIpvaCostForPeriod(parseLocalNumber(user.ipva), allWorkedDays) + parseLocalNumber(user.fines);
+    }
+
+    const allNetProfit = getNetProfit({
+      totalEarned: allTotalEarned,
+      fuel: allVariableCosts.fuel,
+      food: allVariableCosts.food,
+      other: allVariableCosts.other,
+      maintenance: maintenance.filter(m => m.status === "Realizada").reduce((acc, curr) => acc + (curr.value || 0), 0),
+      fixedCosts: allAutoExpenses
+    });
+
+    const globalAvgNetPerTrip = allTotalTrips > 0 ? allNetProfit / allTotalTrips : 0;
+
     return { 
       totalEarned, 
       totalFuel: variableCosts.fuel, 
@@ -615,9 +640,10 @@ export default function App() {
       autoExpensesDays: workedDays, 
       gainPerKm, 
       gainPerHour, 
-      avgNetPerTrip 
+      avgNetPerTrip,
+      globalAvgNetPerTrip
     };
-  }, [filteredEarnings, filteredMaintenance, user]);
+  }, [filteredEarnings, filteredMaintenance, earnings, maintenance, user]);
 
   const hasTodayMaintenance = useMemo(() => {
     if (!maintenanceAlertsEnabled) return false;
@@ -717,6 +743,7 @@ export default function App() {
                       filterRange={filterRange}
                       setFilter={setFilter}
                       chartData={chartData}
+                      globalAvgNetPerTrip={stats.globalAvgNetPerTrip}
                       earnings={filteredEarnings}
                       goal={user?.monthlyGoal || 0}
                       customRange={customRange}
@@ -1254,6 +1281,7 @@ function HomeScreen({
   user,
   stats,
   chartData,
+  globalAvgNetPerTrip,
   filter,
   setFilter,
   earnings,
@@ -1274,6 +1302,7 @@ function HomeScreen({
   user: UserProfile | null;
   stats: any;
   chartData: any[];
+  globalAvgNetPerTrip: number;
   filter: FilterType;
   setFilter: (f: FilterType) => void;
   earnings: Earning[];
@@ -1291,8 +1320,24 @@ function HomeScreen({
   onEditEarning: (e: Earning) => void;
   onDeleteEarning: (id: string) => void;
 }) {
-  const progress = goal > 0
-    ? Math.min((stats.netProfit / goal) * 100, 100)
+  // Prorate goal based on active filter
+  const currentGoal = useMemo(() => {
+    if (goal <= 0) return 0;
+    switch (filter) {
+      case 'dia': return goal / 30;
+      case 'semana': return (goal / 30) * 7;
+      case 'trimestre': return goal * 3;
+      case 'semestre': return goal * 6;
+      case 'anual': return goal * 12;
+      case 'mês':
+      case 'personalizado':
+      default:
+        return goal;
+    }
+  }, [goal, filter]);
+
+  const progress = currentGoal > 0
+    ? Math.min((stats.netProfit / currentGoal) * 100, 100)
     : 0;
   const months = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -1521,15 +1566,15 @@ function HomeScreen({
       {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
         const achievedProfit = stats.netProfit;
-        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / goal) * 100));
-        const remainingGoal = Math.max(0, goal - achievedProfit);
+        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / currentGoal) * 100));
+        const remainingGoal = Math.max(0, currentGoal - achievedProfit);
         
         return (
           <Card className="p-4 space-y-3">
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {goal.toLocaleString('pt-BR')}
+                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </p>
                 {remainingGoal > 0 ? (
                   <p className="text-xl font-black text-zinc-900 tracking-tight">
@@ -1556,9 +1601,9 @@ function HomeScreen({
       })()}
 
       {/* Bloco 3: Corridas Restantes */}
-      {goal > 0 && stats.netProfit !== undefined && stats.netProfit < goal && stats.avgNetPerTrip > 0 && (() => {
-        const remainingGoal = goal - stats.netProfit;
-        const tripsNeeded = Math.ceil(remainingGoal / stats.avgNetPerTrip);
+      {currentGoal > 0 && stats.netProfit !== undefined && stats.netProfit < currentGoal && globalAvgNetPerTrip > 0 && (() => {
+        const remainingGoalForPeriod = currentGoal - stats.netProfit;
+        const tripsNeeded = Math.ceil(remainingGoalForPeriod / globalAvgNetPerTrip);
         return (
           <Card className="p-4 bg-purple-50 border-purple-100">
             <div className="flex items-center gap-3">
