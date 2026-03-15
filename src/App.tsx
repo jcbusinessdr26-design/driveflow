@@ -1320,24 +1320,8 @@ function HomeScreen({
   onEditEarning: (e: Earning) => void;
   onDeleteEarning: (id: string) => void;
 }) {
-  // Prorate goal based on active filter
-  const currentGoal = useMemo(() => {
-    if (goal <= 0) return 0;
-    switch (filter) {
-      case 'dia': return goal / 30;
-      case 'semana': return (goal / 30) * 7;
-      case 'trimestre': return goal * 3;
-      case 'semestre': return goal * 6;
-      case 'anual': return goal * 12;
-      case 'mês':
-      case 'personalizado':
-      default:
-        return goal;
-    }
-  }, [goal, filter]);
-
-  const progress = currentGoal > 0
-    ? Math.min((stats.netProfit / currentGoal) * 100, 100)
+  const progress = goal > 0
+    ? Math.min((stats.netProfit / goal) * 100, 100)
     : 0;
   const months = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -1566,15 +1550,15 @@ function HomeScreen({
       {/* Bloco 2: Meta */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
         const achievedProfit = stats.netProfit;
-        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / currentGoal) * 100));
-        const remainingGoal = Math.max(0, currentGoal - achievedProfit);
+        const metaProgress = Math.min(100, Math.max(0, (achievedProfit / goal) * 100));
+        const remainingGoal = Math.max(0, goal - achievedProfit);
         
         return (
           <Card className="p-4 space-y-3">
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {goal.toLocaleString('pt-BR')}
                 </p>
                 {remainingGoal > 0 ? (
                   <p className="text-xl font-black text-zinc-900 tracking-tight">
@@ -1601,8 +1585,8 @@ function HomeScreen({
       })()}
 
       {/* Bloco 3: Corridas Restantes */}
-      {currentGoal > 0 && stats.netProfit !== undefined && stats.netProfit < currentGoal && globalAvgNetPerTrip > 0 && (() => {
-        const remainingGoalForPeriod = currentGoal - stats.netProfit;
+      {goal > 0 && stats.netProfit !== undefined && stats.netProfit < goal && globalAvgNetPerTrip > 0 && (() => {
+        const remainingGoalForPeriod = goal - stats.netProfit;
         const tripsNeeded = Math.ceil(remainingGoalForPeriod / globalAvgNetPerTrip);
         return (
           <Card className="p-4 bg-purple-50 border-purple-100">
