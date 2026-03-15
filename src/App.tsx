@@ -1323,6 +1323,17 @@ function HomeScreen({
   const progress = goal > 0
     ? Math.min((stats.netProfit / goal) * 100, 100)
     : 0;
+
+  // Internal goal used ONLY for the "Trips Remaining" projection
+  // to avoid seeing monthly projections when looking at a daily filter.
+  const internalPeriodGoal = useMemo(() => {
+    if (goal <= 0) return 0;
+    switch (filter) {
+      case 'dia': return goal / 30;
+      case 'semana': return (goal / 30) * 7;
+      default: return goal;
+    }
+  }, [goal, filter]);
   const months = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
@@ -1584,9 +1595,9 @@ function HomeScreen({
         );
       })()}
 
-      {/* Bloco 3: Corridas Restantes */}
-      {goal > 0 && stats.netProfit !== undefined && stats.netProfit < goal && globalAvgNetPerTrip > 0 && (() => {
-        const remainingGoalForPeriod = goal - stats.netProfit;
+      {/* Bloco 3: Corridas Restantes (Smart Projection) */}
+      {internalPeriodGoal > 0 && stats.netProfit !== undefined && stats.netProfit < internalPeriodGoal && globalAvgNetPerTrip > 0 && (() => {
+        const remainingGoalForPeriod = internalPeriodGoal - stats.netProfit;
         const tripsNeeded = Math.ceil(remainingGoalForPeriod / globalAvgNetPerTrip);
         return (
           <Card className="p-4 bg-purple-50 border-purple-100">
