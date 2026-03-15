@@ -20,7 +20,8 @@ import {
   Pencil,
   Bell,
   AlertTriangle,
-  Download
+  Download,
+  Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { jsPDF } from "jspdf";
@@ -160,6 +161,7 @@ interface Earning {
   km?: number;
   trips?: number;
   hours?: number;
+  promoEarnings?: number;
 }
 
 interface Maintenance {
@@ -320,7 +322,8 @@ const Input = ({
   onChange,
   placeholder,
   prefix,
-  theme = "light"
+  theme = "light",
+  tooltip
 }: {
   label?: string;
   type?: string;
@@ -329,27 +332,75 @@ const Input = ({
   placeholder?: string;
   prefix?: string;
   theme?: "light" | "dark";
-}) => (
-  <div className="flex flex-col gap-1.5 w-full">
-    {label && <label className={cn("text-[11px] font-black uppercase tracking-[0.15em] mb-0.5", theme === "dark" ? "text-blue-100" : "text-zinc-500")}>{label}</label>}
-    <div className="relative flex items-center">
-      {prefix && <span className={cn("absolute left-4 font-medium", theme === "dark" ? "text-blue-200" : "text-zinc-400")}>{prefix}</span>}
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={cn(
-          "w-full border rounded-2xl px-4 py-3.5 focus:outline-none transition-all",
-          theme === "dark"
-            ? "bg-white/10 border-white/20 text-white focus:border-white focus:ring-4 focus:ring-white/10 placeholder:text-blue-200"
-            : "bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-blue-500 placeholder:text-zinc-400",
-          prefix && "pl-12"
-        )}
-      />
+  tooltip?: string;
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-1.5 w-full relative">
+      {label && (
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <label className={cn("text-[11px] font-black uppercase tracking-[0.15em]", theme === "dark" ? "text-blue-100" : "text-zinc-500")}>
+            {label}
+          </label>
+          {tooltip && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowTooltip(!showTooltip)}
+                onBlur={() => setTimeout(() => setShowTooltip(false), 200)}
+                className={cn(
+                  "p-0.5 rounded-full transition-colors",
+                  theme === "dark" ? "text-blue-200 hover:bg-white/10" : "text-zinc-400 hover:bg-zinc-100"
+                )}
+              >
+                <Info className="w-3 h-3" />
+              </button>
+              
+              <AnimatePresence>
+                {showTooltip && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                    className={cn(
+                      "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 rounded-2xl shadow-xl z-[100] text-[11px] font-medium leading-relaxed pointer-events-none",
+                      theme === "dark" 
+                        ? "bg-blue-600 text-white" 
+                        : "bg-white border border-zinc-100 text-zinc-600 shadow-blue-500/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent",
+                      theme === "dark" ? "border-t-blue-600" : "border-t-white"
+                    )} />
+                    {tooltip}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="relative flex items-center">
+        {prefix && <span className={cn("absolute left-4 font-medium", theme === "dark" ? "text-blue-200" : "text-zinc-400")}>{prefix}</span>}
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn(
+            "w-full border rounded-2xl px-4 py-3.5 focus:outline-none transition-all",
+            theme === "dark"
+              ? "bg-white/10 border-white/20 text-white focus:border-white focus:ring-4 focus:ring-white/10 placeholder:text-blue-200"
+              : "bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-blue-500 placeholder:text-zinc-400",
+            prefix && "pl-12"
+          )}
+        />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // --- Main App ---
 
@@ -440,7 +491,8 @@ export default function App() {
         otherCost: Number(e.other_cost),
         km: Number(e.km),
         trips: Number(e.trips || 0),
-        hours: Number(e.hours_worked || 0)
+        hours: Number(e.hours_worked || 0),
+        promoEarnings: Number(e.promo_earnings || 0)
       })));
     }
 
@@ -790,7 +842,8 @@ export default function App() {
                               other_cost: e.otherCost || 0,
                               km: e.km || 0,
                               trips: e.trips || 0,
-                              hours_worked: e.hours || 0
+                              hours_worked: e.hours || 0,
+                              promo_earnings: e.promoEarnings || 0
                             })
                             .eq('id', editingEarning.id);
 
@@ -812,7 +865,8 @@ export default function App() {
                               other_cost: e.otherCost || 0,
                               km: e.km || 0,
                               trips: e.trips || 0,
-                              hours_worked: e.hours || 0
+                              hours_worked: e.hours || 0,
+                              promo_earnings: e.promoEarnings || 0
                             })
                             .select()
                             .single();
@@ -825,10 +879,11 @@ export default function App() {
                               totalEarned: Number(newEarning.total_earned),
                               fuelCost: Number(newEarning.fuel_cost),
                               foodCost: Number(newEarning.food_cost),
-                                otherCost: newEarning.other_cost,
-                                km: newEarning.km,
-                                trips: newEarning.trips,
-                                hours: newEarning.hours_worked
+                              otherCost: Number(newEarning.other_cost),
+                              km: Number(newEarning.km),
+                              trips: Number(newEarning.trips),
+                              hours: Number(newEarning.hours_worked),
+                              promoEarnings: Number(newEarning.promo_earnings || 0)
                               }, ...earnings]);
                             setActiveTab("home");
                           }
@@ -1014,8 +1069,8 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
             {error}
           </div>
         )}
-        <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" />
-        <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" />
+        <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" tooltip="Seu endereço de e-mail cadastrado." />
+        <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" tooltip="Sua senha secreta de acesso." />
 
         <div className="flex items-center gap-2 px-1 pb-1">
           <button
@@ -1137,9 +1192,9 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Foto</p>
           </div>
 
-          <Input label="Nome" value={name} onChange={setName} placeholder="Ex: João Silva" />
-          <Input label="Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" />
-          <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" />
+          <Input label="Nome" value={name} onChange={setName} placeholder="Ex: João Silva" tooltip="Como você gostaria de ser chamado no app." />
+          <Input label="Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" tooltip="Modelo e versão do seu carro." />
+          <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa para identificação nos relatórios." />
 
           <div className="pt-4">
             <Button onClick={() => setStep(2)} disabled={!name || !vehicleName || !licensePlate} className="w-full">Continuar</Button>
@@ -1199,7 +1254,7 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
         <div className="space-y-6">
           <h2 className="text-3xl font-bold tracking-tight">Sua Meta</h2>
           <p className="text-zinc-400">Quanto você deseja ganhar por mês?</p>
-          <Input label="Meta Mensal Líquida" type="number" prefix="R$" value={goal} onChange={setGoal} />
+          <Input label="Meta Mensal Líquida" type="number" prefix="R$" value={goal} onChange={setGoal} tooltip="Quanto você deseja sobrar no bolso limpo por mês." />
           <div className="pt-4 flex gap-3">
             <Button onClick={() => setStep(2)} variant="secondary" className="flex-1">Voltar</Button>
             <Button onClick={() => setStep(4)} className="flex-1">Continuar</Button>
@@ -1235,7 +1290,7 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
 
           {vehicleType === "Alugado" && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <Input label="Valor do Aluguel Semanal" type="number" prefix="R$" value={weeklyRent} onChange={setWeeklyRent} />
+              <Input label="Valor do Aluguel Semanal" type="number" prefix="R$" value={weeklyRent} onChange={setWeeklyRent} tooltip="Valor que você paga por semana pelo aluguel do carro." />
               <p className="text-[10px] text-zinc-500 leading-relaxed">
                 * O valor do aluguel será provisionado automaticamente nos seus cálculos financeiros.
               </p>
@@ -1244,10 +1299,10 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
           
           {vehicleType === "Próprio" && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" />
-              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" />
-              <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} />
-              <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} />
+              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" tooltip="Modelo e versão do seu carro." />
+              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do veículo próprio." />
+              <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} tooltip="Valor total do IPVA do ano corrente." />
+              <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} tooltip="Total de multas pendentes ou previstas." />
             </motion.div>
           )}
 
@@ -2015,6 +2070,7 @@ function AddEarningScreen({
   const [km, setKm] = useState(editingEarning?.km?.toString() || "");
   const [trips, setTrips] = useState(editingEarning?.trips?.toString() || "");
   const [hours, setHours] = useState(editingEarning?.hours?.toString() || "");
+  const [promo, setPromo] = useState(editingEarning?.promoEarnings?.toString() || "");
   const [showNewPlatformInput, setShowNewPlatformInput] = useState(false);
   const [newPlatformName, setNewPlatformName] = useState("");
 
@@ -2042,7 +2098,8 @@ function AddEarningScreen({
     setAmounts({ ...amounts, [p]: val });
   };
 
-  const totalEarned = selectedPlatforms.reduce((acc, p) => acc + parseLocalNumber(amounts[p]), 0);
+  const platformTotal = selectedPlatforms.reduce((acc, p) => acc + parseLocalNumber(amounts[p]), 0);
+  const totalEarned = platformTotal + parseLocalNumber(promo);
 
   const handleSubmit = () => {
     if (selectedPlatforms.length === 0 || !fuel) return;
@@ -2062,7 +2119,8 @@ function AddEarningScreen({
       otherCost: otherCost ? parseLocalNumber(otherCost) : undefined,
       km: km ? parseLocalNumber(km) : undefined,
       trips: trips ? parseLocalNumber(trips) : undefined,
-      hours: hours ? parseLocalNumber(hours) : undefined
+      hours: hours ? parseLocalNumber(hours) : undefined,
+      promoEarnings: promo ? parseLocalNumber(promo) : undefined
     });
   };
 
@@ -2077,10 +2135,37 @@ function AddEarningScreen({
       </h2>
 
       <div className="space-y-6">
-        <Input label="Data" type="date" value={date} onChange={setDate} />
+        <Input 
+          label="Data" 
+          type="date" 
+          value={date} 
+          onChange={setDate} 
+          tooltip="Data em que as atividades foram realizadas."
+        />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.15em] mb-0.5">Plataformas Trabalhadas</label>
+        <div className="flex flex-col gap-1.5 focus-within:z-10">
+          <div className="flex items-center gap-1.5 mb-1 text-[11px] font-black text-zinc-500 uppercase tracking-[0.15em]">
+            <span>Plataformas Trabalhadas</span>
+            <div className="relative group">
+               <button
+                type="button"
+                className="text-zinc-400 hover:text-blue-500 transition-colors"
+                onClick={(e) => {
+                  const el = (e.currentTarget.nextElementSibling as HTMLElement);
+                  if (el) el.style.opacity = el.style.opacity === "1" ? "0" : "1";
+                  if (el) el.style.pointerEvents = el.style.pointerEvents === "auto" ? "none" : "auto";
+                }}
+              >
+                <Info className="w-3 h-3" />
+              </button>
+              <div 
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 rounded-2xl shadow-xl z-50 text-[11px] font-medium leading-relaxed bg-white border border-zinc-100 text-zinc-600 opacity-0 pointer-events-none transition-opacity"
+              >
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
+                Selecione os aplicativos que você utilizou hoje.
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {platforms.map(p => {
               const sel = selectedPlatforms.includes(p);
@@ -2160,13 +2245,46 @@ function AddEarningScreen({
           )}
         </AnimatePresence>
 
-        <Input label="Gasto com Combustível" type="number" prefix="R$" value={fuel} onChange={setFuel} placeholder="0,00" />
-        <Input label="🍽️  Alimentação (Opcional)" type="number" prefix="R$" value={food} onChange={setFood} placeholder="0,00" />
-        <Input label="📦  Outros Gastos (Opcional)" type="number" prefix="R$" value={otherCost} onChange={setOtherCost} placeholder="0,00" />
+        <Input 
+          label="Gasto com Combustível" 
+          type="number" 
+          prefix="R$" 
+          value={fuel} 
+          onChange={setFuel} 
+          placeholder="0,00" 
+          tooltip="Valor total gasto com combustivel no periodo."
+        />
+        <Input 
+          label="🍽️  Alimentação (Opcional)" 
+          type="number" 
+          prefix="R$" 
+          value={food} 
+          onChange={setFood} 
+          placeholder="0,00" 
+          tooltip="Valor gasto com refeicoes durante o trabalho."
+        />
+        <Input 
+          label="📦  Outros Gastos (Opcional)" 
+          type="number" 
+          prefix="R$" 
+          value={otherCost} 
+          onChange={setOtherCost} 
+          placeholder="0,00" 
+          tooltip="Gastos diversos como estacionamento, lavagem, etc."
+        />
+        <Input 
+          label="✨ Ganhos com promoções" 
+          type="number" 
+          prefix="R$" 
+          value={promo} 
+          onChange={setPromo} 
+          placeholder="0,00" 
+          tooltip="Valores extras recebidos de bônus, desafios ou promoções dos aplicativos."
+        />
         <div className="grid grid-cols-3 gap-2">
-          <Input label="KM Rodados" type="number" value={km} onChange={setKm} placeholder="Ex: 120" />
-          <Input label="Corridas" type="number" value={trips} onChange={setTrips} placeholder="Ex: 15" />
-          <Input label="Horas Trabs" type="number" value={hours} onChange={setHours} placeholder="Ex: 8.5" />
+          <Input label="KM Rodados" type="number" value={km} onChange={setKm} placeholder="Ex: 120" tooltip="Kilometragem total percorrida no dia." />
+          <Input label="Corridas" type="number" value={trips} onChange={setTrips} placeholder="Ex: 15" tooltip="Número total de viagens realizadas." />
+          <Input label="Horas Trabs" type="number" value={hours} onChange={setHours} placeholder="Ex: 8.5" tooltip="Tempo total em que você esteve disponível/trabalhando." />
         </div>
 
         <div className="pt-4 flex gap-3">
@@ -2276,7 +2394,7 @@ function MaintenanceScreen({
             <h3 className="text-sm font-bold text-blue-500">
               {editingId ? "Editar Registro" : "Novo Registro"}
             </h3>
-            <Input label="Data" type="date" value={date} onChange={setDate} />
+            <Input label="Data" type="date" value={date} onChange={setDate} tooltip="Data em que o serviço foi ou será realizado." />
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Tipo</label>
               <div className="flex gap-2">
@@ -2294,8 +2412,8 @@ function MaintenanceScreen({
                 ))}
               </div>
             </div>
-            <Input label={isRented ? "O que aconteceu?" : "Serviço Realizado"} value={service} onChange={setService} placeholder={isRented ? "Ex: Furo no pneu traseiro" : "Ex: Troca de Óleo"} />
-            <Input label="Valor do Serviço" type="number" prefix="R$" value={value} onChange={setValue} placeholder="0,00" />
+            <Input label={isRented ? "O que aconteceu?" : "Serviço Realizado"} value={service} onChange={setService} placeholder={isRented ? "Ex: Furo no pneu traseiro" : "Ex: Troca de Óleo"} tooltip="Descrição curta do que foi feito no carro." />
+            <Input label="Valor do Serviço" type="number" prefix="R$" value={value} onChange={setValue} placeholder="0,00" tooltip="Custo total deste serviço." />
             {/* Status */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Status</label>
@@ -2517,7 +2635,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
           <h2 className="text-xl font-bold tracking-tight">Minhas Metas</h2>
         </div>
         <div className="space-y-6">
-          <Input label="Meta Mensal Líquida" type="number" prefix="R$" value={goal} onChange={setGoal} />
+          <Input label="Meta Mensal Líquida" type="number" prefix="R$" value={goal} onChange={setGoal} tooltip="Quanto você deseja sobrar no bolso limpo por mês." />
           <Button onClick={handleSaveGoal} className="w-full">Salvar Nova Meta</Button>
         </div>
       </motion.div>
@@ -2556,18 +2674,18 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
 
           {vehicleType === "Alugado" && (
             <div className="space-y-4">
-              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" />
-              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" />
-              <Input label="Valor do Aluguel Semanal" type="number" prefix="R$" value={weeklyRent} onChange={setWeeklyRent} />
+              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" tooltip="Modelo e versão do seu carro." />
+              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do seu veículo." />
+              <Input label="Valor do Aluguel Semanal" type="number" prefix="R$" value={weeklyRent} onChange={setWeeklyRent} tooltip="Valor que você paga por semana pelo aluguel do carro." />
             </div>
           )}
 
           {vehicleType === "Próprio" && (
             <div className="space-y-4">
-              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" />
-              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" />
-              <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} />
-              <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} />
+              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" tooltip="Modelo e versão do seu carro." />
+              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do veículo próprio." />
+              <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} tooltip="Valor total do IPVA do ano corrente." />
+              <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} tooltip="Total de multas pendentes ou previstas." />
             </div>
           )}
 
