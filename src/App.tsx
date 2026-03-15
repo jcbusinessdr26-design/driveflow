@@ -735,7 +735,9 @@ export default function App() {
       
       const current = grouped.get(key) || { date: key, totalEarned: 0, totalCosts: 0 };
       current.totalEarned += e.totalEarned || 0;
-      current.totalCosts += (e.fuelCost || 0) + (e.foodCost || 0) + (e.otherCost || 0);
+      
+      const dailyRent = user?.vehicleType === "Alugado" ? parseLocalNumber(user.weeklyRent) / 7 : 0;
+      current.totalCosts += (e.fuelCost || 0) + (e.foodCost || 0) + (e.otherCost || 0) + dailyRent;
 
       grouped.set(key, current);
     });
