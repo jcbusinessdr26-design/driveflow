@@ -596,8 +596,8 @@ export default function App() {
     });
     const netProfit = isNaN(rawNetProfit) ? 0 : rawNetProfit;
     
-    const gainPerKm = totalKm > 0 ? netProfit / totalKm : 0;
-    const gainPerHour = totalHours > 0 ? netProfit / totalHours : 0;
+    const gainPerKm = totalKm > 0 ? totalEarned / totalKm : 0;
+    const gainPerHour = totalHours > 0 ? totalEarned / totalHours : 0;
     const avgNetPerTrip = totalTrips > 0 ? netProfit / totalTrips : 0;
 
     // --- Global Stable Projections ---
