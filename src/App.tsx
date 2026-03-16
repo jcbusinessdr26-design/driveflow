@@ -453,6 +453,7 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [todayStr, setTodayStr] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [isDataFetching, setIsDataFetching] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -485,87 +486,99 @@ export default function App() {
       if (error) throw error;
 
       if (session) {
-        await fetchAllData(session.user.id);
-        setScreen("main");
+        // First fast fetch: Profile only to unlock the screen
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          setUser({
+            name: profile.name,
+            avatar: profile.avatar,
+            platforms: profile.platforms,
+            monthlyGoal: Number(profile.monthly_goal),
+            vehicleType: profile.vehicle_type as any,
+            vehicleName: profile.vehicle_name,
+            licensePlate: profile.license_plate,
+            weeklyRent: profile.weekly_rent ? Number(profile.weekly_rent) : undefined,
+            ipva: profile.ipva ? Number(profile.ipva) : 0,
+            fines: profile.fines ? Number(profile.fines) : 0,
+          });
+          setScreen("main");
+          setLoading(false);
+          
+          // Background fetch: Everything else
+          fetchAllData(session.user.id);
+        } else {
+          setScreen("auth");
+          setLoading(false);
+        }
       } else {
         setScreen("auth");
+        setLoading(false);
       }
     } catch (err) {
       console.error("Error checking user session:", err);
       setScreen("auth");
-    } finally {
       setLoading(false);
     }
   };
 
   const fetchAllData = async (userId: string) => {
-    // Fetch Profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      setIsDataFetching(true);
+      
+      // Parallel fetch for speed
+      const [earningsRes, maintenanceRes] = await Promise.all([
+        supabase
+          .from('earnings')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false }),
+        supabase
+          .from('maintenance')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false })
+      ]);
 
-    if (profile) {
-      setUser({
-        name: profile.name,
-        avatar: profile.avatar,
-        platforms: profile.platforms,
-        monthlyGoal: Number(profile.monthly_goal),
-        vehicleType: profile.vehicle_type as any,
-        vehicleName: profile.vehicle_name,
-        licensePlate: profile.license_plate,
-        weeklyRent: profile.weekly_rent ? Number(profile.weekly_rent) : undefined,
-        ipva: profile.ipva ? Number(profile.ipva) : 0,
-        fines: profile.fines ? Number(profile.fines) : 0,
-      });
-    }
+      if (earningsRes.data) {
+        setEarnings(earningsRes.data.map(e => ({
+          id: e.id,
+          date: e.date,
+          platformDetails: e.platform_details,
+          totalEarned: Number(e.total_earned),
+          fuelCost: Number(e.fuel_cost),
+          foodCost: Number(e.food_cost),
+          otherCost: Number(e.other_cost),
+          km: Number(e.km),
+          trips: Number(e.trips || 0),
+          hours: Number(e.hours_worked || 0),
+          promoEarnings: Number(e.promo_earnings || 0)
+        })));
+      }
 
-    // Fetch Earnings
-    const { data: earningsData } = await supabase
-      .from('earnings')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-
-    if (earningsData) {
-      setEarnings(earningsData.map(e => ({
-        id: e.id,
-        date: e.date,
-        platformDetails: e.platform_details,
-        totalEarned: Number(e.total_earned),
-        fuelCost: Number(e.fuel_cost),
-        foodCost: Number(e.food_cost),
-        otherCost: Number(e.other_cost),
-        km: Number(e.km),
-        trips: Number(e.trips || 0),
-        hours: Number(e.hours_worked || 0),
-        promoEarnings: Number(e.promo_earnings || 0)
-      })));
-    }
-
-    // Fetch Maintenance
-    const { data: maintenanceData } = await supabase
-      .from('maintenance')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-
-    if (maintenanceData) {
-      setMaintenance(maintenanceData.map(m => ({
-        id: m.id,
-        date: m.date,
-        type: m.type,
-        service: m.service,
-        value: Number(m.value),
-        status: m.status
-      })));
+      if (maintenanceRes.data) {
+        setMaintenance(maintenanceRes.data.map(m => ({
+          id: m.id,
+          date: m.date,
+          type: m.type,
+          service: m.service,
+          value: Number(m.value),
+          status: m.status
+        })));
+      }
+    } finally {
+      setIsDataFetching(false);
     }
   };
 
   const handleAuthSuccess = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
+      setLoading(true);
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -574,9 +587,23 @@ export default function App() {
 
       if (!profile) {
         setScreen("setup");
+        setLoading(false);
       } else {
-        await fetchAllData(session.user.id);
+        setUser({
+          name: profile.name,
+          avatar: profile.avatar,
+          platforms: profile.platforms,
+          monthlyGoal: Number(profile.monthly_goal),
+          vehicleType: profile.vehicle_type as any,
+          vehicleName: profile.vehicle_name,
+          licensePlate: profile.license_plate,
+          weeklyRent: profile.weekly_rent ? Number(profile.weekly_rent) : undefined,
+          ipva: profile.ipva ? Number(profile.ipva) : 0,
+          fines: profile.fines ? Number(profile.fines) : 0,
+        });
         setScreen("main");
+        setLoading(false);
+        fetchAllData(session.user.id);
       }
     }
   };
@@ -752,7 +779,8 @@ export default function App() {
       gainPerKm, 
       gainPerHour, 
       avgNetPerTrip,
-      globalAvgNetPerTrip
+      globalAvgNetPerTrip,
+      allNetProfit
     };
   }, [filteredEarnings, filteredMaintenance, earnings, maintenance, user]);
 
@@ -1953,8 +1981,10 @@ function HomeScreen({
       {(() => {
         let dailyGoalNeeded = 0;
         let daysRemaining = 0;
-        if (goal > 0 && stats.netProfit !== undefined) {
-          const remainingGoal = goal - stats.netProfit;
+        if (goal > 0 && stats.allNetProfit !== undefined) {
+          // Use total monthly accumulated profit (allNetProfit) instead of filtered netProfit
+          // to ensure "Meta Diária Necessária" is consistent across all filters.
+          const remainingGoal = goal - stats.allNetProfit;
           
           // To calculate the daily goal remaining, always use today as reference
           const today = startOfDay(new Date());
