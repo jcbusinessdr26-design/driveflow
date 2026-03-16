@@ -511,6 +511,7 @@ export default function App() {
             weeklyRent: profile.weekly_rent ? Number(profile.weekly_rent) : undefined,
             ipva: profile.ipva ? Number(profile.ipva) : 0,
             fines: profile.fines ? Number(profile.fines) : 0,
+            avgConsumption: profile.avg_consumption ? Number(profile.avg_consumption) : 0,
           });
           setScreen("main");
           setLoading(false);
@@ -609,6 +610,7 @@ export default function App() {
           weeklyRent: profile.weekly_rent ? Number(profile.weekly_rent) : undefined,
           ipva: profile.ipva ? Number(profile.ipva) : 0,
           fines: profile.fines ? Number(profile.fines) : 0,
+          avgConsumption: profile.avg_consumption ? Number(profile.avg_consumption) : 0,
         });
         setScreen("main");
         setLoading(false);
@@ -632,7 +634,8 @@ export default function App() {
       license_plate: profile.licensePlate,
       weekly_rent: profile.weeklyRent,
       ipva: profile.ipva,
-      fines: profile.fines
+      fines: profile.fines,
+      avg_consumption: profile.avgConsumption
     });
 
     if (!error) {
