@@ -176,7 +176,7 @@ interface Earning {
 interface Maintenance {
   id: string;
   date: string;
-  type: "Manutenção" | "Revisão";
+  type: string;
   service: string;
   value: number;
   status: "Realizada" | "Pendente";
@@ -306,7 +306,8 @@ const Button = ({
     secondary: "bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200",
     danger: "bg-red-500 hover:bg-red-600 text-white",
     ghost: "bg-transparent hover:bg-zinc-100 text-zinc-500",
-    white: "bg-white hover:bg-zinc-50 text-blue-600 shadow-lg shadow-blue-900/10"
+    white: "bg-white hover:bg-zinc-50 text-blue-600 shadow-lg shadow-blue-900/10",
+    vibrant: "bg-yellow-400 hover:bg-yellow-500 text-zinc-900 shadow-lg shadow-yellow-500/40 border-none"
   };
 
   return (
@@ -1021,6 +1022,8 @@ export default function App() {
                             value: Number(newMaint.value),
                             status: newMaint.status
                           }, ...maintenance]);
+                        } else if (error) {
+                          alert("Erro ao adicionar manutenção: " + error.message);
                         }
                       }}
                       onUpdate={async (m) => {
@@ -1037,6 +1040,8 @@ export default function App() {
 
                         if (!error) {
                           setMaintenance(maintenance.map(item => item.id === m.id ? m : item));
+                        } else {
+                          alert("Erro ao atualizar manutenção: " + error.message);
                         }
                       }}
                       onDelete={async (id) => {
@@ -1047,6 +1052,8 @@ export default function App() {
 
                         if (!error) {
                           setMaintenance(maintenance.filter(m => m.id !== id));
+                        } else {
+                          alert("Erro ao excluir manutenção: " + error.message);
                         }
                       }}
                     />
@@ -1267,8 +1274,8 @@ function AuthScreen({
 
         <Button
           onClick={handleAuth}
-          className="w-full text-blue-700 mt-2"
-          variant="white"
+          className="w-full mt-2"
+          variant="vibrant"
           disabled={loading || (authView === "updatePassword" ? (!password || !confirmPassword) : (!email || (authView !== "forgotPassword" && !password)))}
         >
           {loading ? "Carregando..." : (
@@ -2493,7 +2500,14 @@ function MaintenanceScreen({
   };
 
   const handleSubmit = () => {
-    if (!service || !value) return;
+    if (!service) {
+      alert("Por favor, informe o serviço realizado.");
+      return;
+    }
+    if (!value || parseLocalNumber(value) <= 0) {
+      alert("Por favor, informe um valor válido para o serviço.");
+      return;
+    }
 
     if (editingId) {
       onUpdate({
