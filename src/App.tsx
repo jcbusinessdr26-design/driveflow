@@ -1696,6 +1696,19 @@ function HomeScreen({
     }
   }, [filter]);
 
+  const metaLabel = useMemo(() => {
+    switch (filter) {
+      case 'dia': return 'Meta de hoje';
+      case 'semana': return 'Meta da semana';
+      case 'mês': return `Meta ${months[selectedMonth]}`;
+      case 'trimestre': return 'Meta do trimestre';
+      case 'semestre': return 'Meta do semestre';
+      case 'anual': return `Meta ${selectedYear}`;
+      case 'personalizado': return 'Meta do período';
+      default: return 'Meta';
+    }
+  }, [filter, selectedMonth, selectedYear, months]);
+
   return (
     <div className="space-y-6 pb-12">
       <AnimatePresence>
@@ -1857,7 +1870,7 @@ function HomeScreen({
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <p className="text-lg font-black text-zinc-900 tracking-tight leading-none">
-                  Meta ({periodLabel}): R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                  {metaLabel}: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[11px] font-bold text-zinc-500">
                   Progresso: R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
