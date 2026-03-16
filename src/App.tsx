@@ -1679,6 +1679,19 @@ function HomeScreen({
     doc.save(`driverflow_relatorio_${filter}.pdf`);
   };
 
+  const periodLabel = useMemo(() => {
+    switch (filter) {
+      case 'dia': return 'Hoje';
+      case 'semana': return 'Esta semana';
+      case 'mês': return 'Este mês';
+      case 'trimestre': return 'Este trimestre';
+      case 'semestre': return 'Este semestre';
+      case 'anual': return 'Este ano';
+      case 'personalizado': return 'Personalizado';
+      default: return 'Período';
+    }
+  }, [filter]);
+
   return (
     <div className="space-y-6 pb-12">
       <AnimatePresence>
@@ -1735,7 +1748,10 @@ function HomeScreen({
       </AnimatePresence>
 
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-sm font-bold tracking-tight text-zinc-900">Período de Análise</h2>
+        <div>
+          <h2 className="text-sm font-bold tracking-tight text-zinc-900">Período de Análise</h2>
+          <p className="text-[10px] text-zinc-500 font-medium">Período atual: {periodLabel}</p>
+        </div>
         <button 
           onClick={handleExport}
           className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-all active:scale-95"
@@ -1841,212 +1857,146 @@ function HomeScreen({
         );
       })()}
 
-      {/* Bloco 2: Meta */}
+      {/* 1️⃣ BLOCO PRINCIPAL — RESULTADO DO PERÍODO */}
+      <Card className="p-6 bg-blue-600 border-none shadow-xl shadow-blue-500/20 text-white relative overflow-hidden">
+        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+        <div className="relative z-10 space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-black text-blue-100 uppercase tracking-widest">Lucro Líquido</p>
+            <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-lg">Período: {periodLabel}</span>
+          </div>
+          <p className="text-4xl font-black tracking-tight">
+            R$ {stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-[10px] text-blue-100/80 font-medium leading-relaxed">
+            Já com combustível, alimentação, outros gastos e aluguel descontados.
+          </p>
+        </div>
+      </Card>
+
+      {/* 2️⃣ BLOCO DE META */}
       {goal > 0 && typeof stats.netProfit !== 'undefined' && (() => {
         const achievedProfit = stats.netProfit;
         const metaProgress = Math.min(100, Math.max(0, (achievedProfit / currentGoal) * 100));
         const remainingGoal = Math.max(0, currentGoal - achievedProfit);
         
-        let dailyGoalNeeded = 0;
-        if (goal > 0 && stats.allNetProfit !== undefined) {
-          const remainingGoalTotal = goal - stats.allNetProfit;
-          const today = startOfDay(new Date());
-          const endOfMonthDate = endOfMonth(today);
-          if (endOfMonthDate >= today) {
-            const daysRemaining = differenceInCalendarDays(endOfMonthDate, today) + 1;
-            if (daysRemaining > 0 && remainingGoalTotal > 0) {
-              dailyGoalNeeded = remainingGoalTotal / daysRemaining;
-            }
-          }
-        }
-
         return (
           <Card className="p-4 space-y-3">
             <div className="flex justify-between items-start">
-              <div>
-                <div className="flex flex-col gap-0.5 mb-2">
-                  <span className="text-[10px] font-black text-purple-600 uppercase tracking-[0.1em]">Meta Diária Necessária</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-bold text-white bg-purple-500/80 px-1.5 py-0.5 rounded-md uppercase tracking-wide">Lucro Líquido</span>
-                    <span className="text-[9px] font-medium text-zinc-400">hoje é {format(new Date(), 'dd/MM/yyyy')}</span>
-                  </div>
-                  <div className="mt-1">
-                    <span className="text-xl font-black text-purple-700 leading-none">
-                      R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[9px] font-bold text-purple-400 uppercase tracking-widest ml-1">por dia</span>
-                  </div>
-                </div>
-                
-                <div className="mt-2 pt-2 border-t border-zinc-100">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                    Progresso da {filter === 'dia' ? 'Meta do Dia' : filter === 'semana' ? 'Meta da Semana' : filter === 'mês' ? 'Meta do Mês' : filter === 'trimestre' ? 'Meta do Trimestre' : filter === 'semestre' ? 'Meta do Semestre' : filter === 'anual' ? 'Meta do Ano' : 'Meta do Período'}
-                  </p>
-                </div>
-                
+              <div className="space-y-1">
+                <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
+                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}
+                </p>
+                <p className="text-lg font-black text-zinc-900 tracking-tight leading-none">
+                  Meta: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-[11px] font-bold text-zinc-500">
+                  Progresso: R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                </p>
+              </div>
+              <div className="text-right">
                 {remainingGoal > 0 ? (
-                  <p className="text-lg font-black text-zinc-900 tracking-tight">
-                    Atingido <span className="text-emerald-600">R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </p>
+                  <div className="bg-amber-50 text-amber-600 px-3 py-1.5 rounded-xl border border-amber-100">
+                    <p className="text-[10px] font-black uppercase tracking-wider">Faltam</p>
+                    <p className="text-sm font-black">R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
                 ) : (
-                  <p className="text-lg font-black text-emerald-600 tracking-tight">
-                    Meta atingida 🎉
-                  </p>
+                  <div className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100 flex flex-col items-center gap-0.5">
+                    <Check className="w-3.5 h-3.5" />
+                    <p className="text-[10px] font-black uppercase tracking-wider">Meta atingida 🎉</p>
+                  </div>
                 )}
               </div>
-              <TrendingUp className={cn("w-5 h-5", remainingGoal > 0 ? "text-purple-500" : "text-emerald-500")} />
-            </div>
-            
-            <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider mb-1">
-              <p className="text-zinc-500">Progresso</p>
-              <p className={remainingGoal > 0 ? "text-blue-600" : "text-emerald-600"}>{metaProgress.toFixed(1)}%</p>
             </div>
             
             <div className="h-2.5 bg-zinc-100 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${metaProgress}%` }}
-                className={cn("h-full rounded-full transition-all duration-1000", remainingGoal > 0 ? "bg-blue-500" : "bg-emerald-500")}
+                className={cn("h-full rounded-full transition-all duration-1000", remainingGoal > 0 ? "bg-amber-500" : "bg-emerald-500")}
               />
             </div>
           </Card>
         );
       })()}
 
-      {/* Bloco 3: Corridas Restantes (Smart Projection) */}
-      {internalPeriodGoal > 0 && stats.netProfit !== undefined && stats.netProfit < internalPeriodGoal && globalAvgNetPerTrip > 0 && (() => {
-        const remainingGoalForPeriod = internalPeriodGoal - stats.netProfit;
-        const tripsNeeded = Math.ceil(remainingGoalForPeriod / globalAvgNetPerTrip);
-        return (
-          <Card className="p-4 bg-purple-50 border-purple-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-xl">
-                <CarFront className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Para bater a meta:</p>
-                <p className="text-lg font-black text-purple-700 tracking-tight">faltam ~{tripsNeeded} corridas</p>
-                <p className="text-[9px] font-medium text-purple-600/70 mt-0.5">Baseado na sua média líquida por corrida</p>
-              </div>
-            </div>
-          </Card>
-        );
-      })()}
+      {/* 3️⃣ BLOCO — RESUMO FINANCEIRO */}
       <div className="pt-2">
-        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-2 mb-3">Detalhamento de Gastos e Performance</h3>
-        <div className="space-y-4 pt-2 pb-2 pl-2">
-          <div className="grid grid-cols-2 gap-3">
-
-            <Card className="flex flex-col gap-1.5 p-4">
-              <div className="flex items-center gap-1.5 text-zinc-400">
-                <DollarSign className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos Brutos</span>
-              </div>
-              <p className="text-base font-black text-zinc-900">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </Card>
-            {stats.totalPromo > 0 && (
-              <Card className="flex flex-col gap-1.5 p-4 border-emerald-100 bg-emerald-50/50">
-                <div className="flex items-center gap-1.5 text-emerald-600">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos de Promoções</span>
-                </div>
-                <p className="text-base font-black text-emerald-700">R$ {stats.totalPromo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </Card>
-            )}
-            <Card className="flex flex-col gap-1.5 p-4">
-              <div className="flex items-center gap-1.5 text-orange-500">
-                <Fuel className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Combustível</span>
-              </div>
-              <p className="text-base font-black text-orange-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </Card>
-            <Card className="flex flex-col gap-1.5 p-4">
-              <div className="flex items-center gap-1.5 text-blue-500">
-                <CarFront className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">KM Rodados</span>
-              </div>
-              <p className="text-base font-black text-blue-600">{stats.totalKm.toLocaleString('pt-BR')} km</p>
-            </Card>
-            <Card className="flex flex-col gap-1.5 p-4">
-              <div className="flex items-center gap-1.5 text-amber-500">
-                <span className="text-sm">🍽️</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider">Alimentação</span>
-              </div>
-              <p className="text-base font-black text-amber-600">- R$ {stats.totalFood.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </Card>
-            {stats.totalOther > 0 && (
-              <Card className="flex flex-col gap-1.5 p-4">
-                <div className="flex items-center gap-1.5 text-purple-500">
-                  <span className="text-sm">📦</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Outros</span>
-                </div>
-                <p className="text-base font-black text-purple-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </Card>
-            )}
-            {stats.totalMaintenance > 0 && (
-              <Card className="flex flex-col gap-1.5 p-4">
-                <div className="flex items-center gap-1.5 text-rose-500">
-                  <Wrench className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Oficina</span>
-                </div>
-                <p className="text-base font-black text-rose-600">- R$ {stats.totalMaintenance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </Card>
-            )}
-            {stats.autoExpenses > 0 && (
-              <Card className="col-span-2 flex items-center justify-between p-4 border-rose-100 bg-rose-50/50">
-                <div className="flex items-center gap-2 text-rose-500">
-                  <Wrench className="w-4 h-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">
-                    {user?.vehicleType === "Alugado"
-                      ? `Aluguel Restante (Ref. ${stats.autoExpensesDays} ${stats.autoExpensesDays === 1 ? 'dia' : 'dias'})\n`
-                      : `Custos Fixos (Ref. ${stats.workedDays} ${stats.workedDays === 1 ? 'dia' : 'dias'})\n`}
-                  </span>
-                </div>
-                <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </Card>
-            )}
-          </div>
-
-      {/* Productivity Coach */}
-      {(() => {
-        let dailyGoalNeeded = 0;
-        let daysRemaining = 0;
-        if (goal > 0 && stats.allNetProfit !== undefined) {
-          // Use total monthly accumulated profit (allNetProfit) instead of filtered netProfit
-          // to ensure "Meta Diária Necessária" is consistent across all filters.
-          const remainingGoal = goal - stats.allNetProfit;
-          
-          // To calculate the daily goal remaining, always use today as reference
-          const today = startOfDay(new Date());
-          const endOfMonthDate = endOfMonth(today);
-          
-          if (endOfMonthDate >= today) {
-            daysRemaining = differenceInCalendarDays(endOfMonthDate, today) + 1;
-            if (daysRemaining > 0 && remainingGoal > 0) {
-              dailyGoalNeeded = remainingGoal / daysRemaining;
-            }
-          }
-        }
-
-        return (
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-zinc-900 px-1">Produtividade</h3>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <Card className="flex flex-col gap-1.5 p-4 border-emerald-100 bg-emerald-50/50">
-                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Ganho real p/ KM</p>
-                <p className="text-xl font-black text-emerald-700">R$ {stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-emerald-600/70 ml-1">/ km</span></p>
-              </Card>
-              <Card className="flex flex-col gap-1.5 p-4 border-blue-100 bg-blue-50/50">
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ Hora</p>
-                <p className="text-xl font-black text-blue-700">R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span></p>
-              </Card>
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-2 mb-3">Resumo do Período</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="flex flex-col gap-1.5 p-4 border-emerald-50 bg-emerald-50/10">
+            <div className="flex items-center gap-1.5 text-emerald-600">
+              <DollarSign className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos Brutos</span>
             </div>
-          </div>
-        );
-      })()}
+            <p className="text-base font-black text-emerald-700">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </Card>
 
+          <Card className="flex flex-col gap-1.5 p-4 border-rose-50 bg-rose-50/10">
+            <div className="flex items-center gap-1.5 text-rose-500">
+              <Fuel className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Combustível</span>
+            </div>
+            <p className="text-base font-black text-rose-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </Card>
+
+          <Card className="flex flex-col gap-1.5 p-4 border-amber-50 bg-amber-50/10">
+            <div className="flex items-center gap-1.5 text-amber-500">
+              <span className="text-sm">🍽️</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Alimentação</span>
+            </div>
+            <p className="text-base font-black text-amber-600">- R$ {stats.totalFood.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </Card>
+
+          <Card className="flex flex-col gap-1.5 p-4 border-purple-50 bg-purple-50/10">
+            <div className="flex items-center gap-1.5 text-purple-500">
+              <span className="text-sm">📦</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Outros</span>
+            </div>
+            <p className="text-base font-black text-purple-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </Card>
+
+          <Card className="flex flex-col gap-1.5 p-4 border-blue-50 bg-blue-50/10">
+            <div className="flex items-center gap-1.5 text-blue-500">
+              <CarFront className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">KM Rodados</span>
+            </div>
+            <p className="text-base font-black text-blue-600">{stats.totalKm.toLocaleString('pt-BR')} km</p>
+          </Card>
+
+          {stats.autoExpenses > 0 && (
+            <Card className="col-span-2 flex items-center justify-between p-4 border-orange-50 bg-orange-50/10">
+              <div className="flex items-center gap-2 text-orange-500">
+                <Wrench className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  {user?.vehicleType === "Alugado" ? "Aluguel Proporcional" : "Custos Fixos"}
+                </span>
+              </div>
+              <p className="text-base font-black text-orange-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </Card>
+          )}
         </div>
       </div>
+
+      {/* 4️⃣ BLOCO — PRODUTIVIDADE */}
+      <div className="pt-2">
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-2 mb-3">Produtividade</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="flex flex-col gap-1.5 p-4 border-blue-100 bg-blue-50/30">
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ KM</p>
+            <p className="text-xl font-black text-blue-700">
+              R$ {stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ km</span>
+            </p>
+          </Card>
+          <Card className="flex flex-col gap-1.5 p-4 border-blue-100 bg-blue-50/30">
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ Hora</p>
+            <p className="text-xl font-black text-blue-700">
+              R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span>
+            </p>
+          </Card>
+        </div>
+      </div>
+
 
       {/* Chart */}
       <Card className="p-0 pt-6 border-zinc-100 shadow-sm">
@@ -2054,17 +2004,7 @@ function HomeScreen({
           <div>
             <h3 className="text-sm font-bold text-zinc-900">Dashboard</h3>
             <p className="text-[10px] text-zinc-500 font-medium">
-              Ganhos vs Gastos ({
-                {
-                  "dia": "Hoje",
-                  "semana": "Esta semana",
-                  "mês": "Este mês",
-                  "trimestre": "Este trimestre",
-                  "semestre": "Este semestre",
-                  "anual": "Este ano",
-                  "personalizado": "Período personalizado"
-                }[filter] ?? "Período"
-              })
+              Ganhos vs Gastos ({periodLabel})
             </p>
           </div>
         </div>
@@ -2174,18 +2114,23 @@ function HomeScreen({
                         <p className="text-xs font-black text-zinc-900 truncate leading-tight">
                           {platforms.map(p => p.name).join(" + ")}
                         </p>
-                        <p className="text-[10px] text-zinc-400 font-medium">
-                          {item_e.date ? format(parseLocalDate(item_e.date), "dd/MM/yyyy", { locale: ptBR }) : ""}
-                          {item_e.km ? ` · ${item_e.km} km` : ""}
-                        </p>
+                        <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">
+                          <span>{item_e.date ? format(parseLocalDate(item_e.date), "dd/MM/yyyy", { locale: ptBR }) : ""}</span>
+                          {item_e.km ? (
+                            <>
+                              <span className="w-1 h-1 bg-zinc-200 rounded-full" />
+                              <span>{item_e.km} km</span>
+                            </>
+                          ) : ""}
+                        </div>
                       </div>
                     </div>
                     {/* Net value */}
                     <div className="text-right flex-shrink-0 ml-2">
-                      <p className={cn("text-sm font-black", netProfit >= 0 ? "text-emerald-600" : "text-rose-500")}>
+                      <p className={cn("text-base font-black tracking-tight", netProfit >= 0 ? "text-emerald-600" : "text-rose-500")}>
                         R$ {netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
-                      <p className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">LÍQUIDO</p>
+                      <p className="text-[8px] text-zinc-400 font-black uppercase tracking-[0.15em] -mt-1">LÍQUIDO</p>
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-1 ml-2">
