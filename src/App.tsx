@@ -1857,7 +1857,7 @@ function HomeScreen({
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
-                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}
+                  Lucro líquido : R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-lg font-black text-zinc-900 tracking-tight leading-none">
                   Meta: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
