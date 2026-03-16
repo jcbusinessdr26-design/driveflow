@@ -193,6 +193,7 @@ interface UserProfile {
   weeklyRent?: number;
   ipva?: number;
   fines?: number;
+  avgConsumption?: number;
 }
 
 type FilterType = "dia" | "semana" | "mês" | "trimestre" | "semestre" | "anual" | "personalizado";
@@ -1339,6 +1340,7 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
   const [weeklyRent, setWeeklyRent] = useState("500");
   const [ipva, setIpva] = useState("0");
   const [fines, setFines] = useState("0");
+  const [avgConsumption, setAvgConsumption] = useState("0");
 
   const defaultPlatforms: Platform[] = ["Uber", "99 Pop", "InDrive"];
 
@@ -1515,6 +1517,7 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
               <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do veículo próprio." />
               <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} tooltip="Valor total do IPVA do ano corrente." />
               <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} tooltip="Total de multas pendentes ou previstas." />
+              <Input label="Consumo Médio (km/L)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 12.5" tooltip="Consumo médio de combustível do seu veículo." />
             </motion.div>
           )}
 
@@ -1531,7 +1534,8 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
                 licensePlate,
                 weeklyRent: vehicleType === "Alugado" ? parseLocalNumber(weeklyRent) : undefined,
                 ipva: vehicleType === "Próprio" ? parseLocalNumber(ipva) : undefined,
-                fines: vehicleType === "Próprio" ? parseLocalNumber(fines) : undefined
+                fines: vehicleType === "Próprio" ? parseLocalNumber(fines) : undefined,
+                avgConsumption: vehicleType === "Próprio" ? parseLocalNumber(avgConsumption) : undefined
               })}
               className="flex-1"
             >
@@ -1924,13 +1928,7 @@ function HomeScreen({
             <p className="text-base font-black text-rose-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
 
-          <Card className="flex flex-col gap-1.5 p-4 border-blue-50 bg-blue-50/10">
-            <div className="flex items-center gap-1.5 text-blue-500">
-              <CarFront className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">KM Rodados</span>
-            </div>
-            <p className="text-base font-black text-blue-600">{stats.totalKm.toLocaleString('pt-BR')} km</p>
-          </Card>
+
 
           {stats.autoExpenses > 0 && (
             <Card className="col-span-2 flex items-center justify-between p-4 border-rose-50 bg-rose-50/10">
@@ -1960,6 +1958,18 @@ function HomeScreen({
             <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ Hora</p>
             <p className="text-xl font-black text-blue-700">
               R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span>
+            </p>
+          </Card>
+          <Card className="flex flex-col gap-1.5 p-4 border-emerald-100 bg-emerald-50/30">
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">KM Rodados</p>
+            <p className="text-xl font-black text-emerald-700">
+              {stats.totalKm.toLocaleString('pt-BR')} <span className="text-xs font-bold text-emerald-600/70 ml-1">km</span>
+            </p>
+          </Card>
+          <Card className="flex flex-col gap-1.5 p-4 border-amber-100 bg-amber-50/30">
+            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Consumo Médio</p>
+            <p className="text-xl font-black text-amber-700">
+              {user?.avgConsumption || '0'} <span className="text-xs font-bold text-amber-600/70 ml-1">km/L</span>
             </p>
           </Card>
         </div>
@@ -2661,6 +2671,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
   const [weeklyRent, setWeeklyRent] = useState(user?.weeklyRent?.toString() || "500");
   const [ipva, setIpva] = useState(user?.ipva?.toString() || "0");
   const [fines, setFines] = useState(user?.fines?.toString() || "0");
+  const [avgConsumption, setAvgConsumption] = useState(user?.avgConsumption?.toString() || "");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2684,6 +2695,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
       setWeeklyRent(user.weeklyRent?.toString() || "500");
       setIpva(user.ipva?.toString() || "0");
       setFines(user.fines?.toString() || "0");
+      setAvgConsumption(user.avgConsumption?.toString() || "");
     }
   }, [user]);
 
@@ -2731,7 +2743,8 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
         licensePlate,
         weeklyRent: vehicleType === "Alugado" ? parseLocalNumber(weeklyRent) : undefined,
         ipva: vehicleType === "Próprio" ? parseLocalNumber(ipva) : undefined,
-        fines: vehicleType === "Próprio" ? parseLocalNumber(fines) : undefined
+        fines: vehicleType === "Próprio" ? parseLocalNumber(fines) : undefined,
+        avgConsumption: parseLocalNumber(avgConsumption)
       });
       setActiveSection("none");
     }
@@ -2821,9 +2834,8 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
 
           {vehicleType === "Alugado" && (
             <div className="space-y-4">
-              <Input label="Nome do Veículo" value={vehicleName} onChange={setVehicleName} placeholder="Ex: Toyota Corolla" tooltip="Modelo e versão do seu carro." />
-              <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do seu veículo." />
               <Input label="Valor do Aluguel Semanal" type="number" prefix="R$" value={weeklyRent} onChange={setWeeklyRent} tooltip="Valor que você paga por semana pelo aluguel do carro." />
+              <Input label="Consumo Médio (km/L)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 12.5" tooltip="Consumo médio de combustível do seu veículo." />
             </div>
           )}
 
@@ -2833,6 +2845,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
               <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do veículo próprio." />
               <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} tooltip="Valor total do IPVA do ano corrente." />
               <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} tooltip="Total de multas pendentes ou previstas." />
+              <Input label="Consumo Médio (km/L)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 12.5" tooltip="Consumo médio de combustível do seu veículo." />
             </div>
           )}
 
