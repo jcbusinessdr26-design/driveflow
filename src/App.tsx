@@ -1221,6 +1221,13 @@ function AuthScreen({
           </div>
         )}
         
+        {authView === "forgotPassword" && (
+          <div className="flex flex-col items-center gap-2 mb-2">
+            <ShieldCheck className="w-8 h-8 text-white/40" />
+            <h2 className="text-xl font-bold text-white tracking-tight">Redefinir Senha</h2>
+          </div>
+        )}
+        
         {authView !== "updatePassword" && (
           <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" tooltip="Seu endereço de e-mail cadastrado." />
         )}
@@ -1262,6 +1269,10 @@ function AuthScreen({
 
         {authView === "updatePassword" && (
           <div className="space-y-4">
+            <div className="flex flex-col items-center gap-2 mb-2">
+              <ShieldCheck className="w-8 h-8 text-white/40" />
+              <h2 className="text-xl font-bold text-white tracking-tight">Redefinir Senha</h2>
+            </div>
             <p className="text-white text-xs text-center font-medium bg-white/10 p-3 rounded-2xl border border-white/20">
               Digite e confirme sua nova senha abaixo.
             </p>
@@ -1295,7 +1306,7 @@ function AuthScreen({
           {loading ? "Carregando..." : (
             authView === "signup" ? "Criar Conta" : 
             authView === "forgotPassword" ? "Enviar link" : 
-            authView === "updatePassword" ? "Definir Nova Senha" : "Entrar"
+            authView === "updatePassword" ? "Redefinir Senha" : "Entrar"
           )}
         </Button>
 
