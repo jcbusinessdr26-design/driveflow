@@ -1945,6 +1945,14 @@ function HomeScreen({
             <p className="text-base font-black text-rose-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
 
+          <Card className="flex flex-col gap-1.5 p-4 border-blue-50 bg-blue-50/10">
+            <div className="flex items-center gap-1.5 text-rose-600">
+              <Wrench className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Oficina</span>
+            </div>
+            <p className="text-base font-black text-rose-600">- R$ {stats.totalMaintenance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </Card>
+
 
 
           {stats.autoExpenses > 0 && (
