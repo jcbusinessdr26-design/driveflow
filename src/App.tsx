@@ -1856,11 +1856,8 @@ function HomeScreen({
           <Card className="p-4 space-y-3">
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">
-                  Lucro líquido : R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
                 <p className="text-lg font-black text-zinc-900 tracking-tight leading-none">
-                  Meta: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                  Meta ({periodLabel}): R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[11px] font-bold text-zinc-500">
                   Progresso: R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
