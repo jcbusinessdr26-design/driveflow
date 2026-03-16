@@ -1826,17 +1826,17 @@ function HomeScreen({
 
 
       {/* 1️⃣ BLOCO PRINCIPAL — RESULTADO DO PERÍODO */}
-      <Card className="p-6 bg-blue-600 border-none shadow-xl shadow-blue-500/20 text-white relative overflow-hidden">
+      <Card className="p-6 bg-emerald-600 border-none shadow-xl shadow-emerald-500/20 text-white relative overflow-hidden">
         <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
         <div className="relative z-10 space-y-1">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-black text-blue-100 uppercase tracking-widest">Lucro Líquido</p>
+            <p className="text-[11px] font-black text-emerald-100 uppercase tracking-widest">Lucro Líquido</p>
             <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-lg">Período: {periodLabel}</span>
           </div>
           <p className="text-4xl font-black tracking-tight">
             R$ {stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[10px] text-blue-100/80 font-medium leading-relaxed">
+          <p className="text-[10px] text-emerald-100/80 font-medium leading-relaxed">
             Já com combustível, alimentação, outros gastos e aluguel descontados.
           </p>
         </div>
@@ -1859,14 +1859,14 @@ function HomeScreen({
                   Meta: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[11px] font-bold text-zinc-500">
-                  Progresso: R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                  Progresso: R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="text-right">
                 {remainingGoal > 0 ? (
                   <div className="bg-amber-50 text-amber-600 px-3 py-1.5 rounded-xl border border-amber-100">
                     <p className="text-[10px] font-black uppercase tracking-wider">Faltam</p>
-                    <p className="text-sm font-black">R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-sm font-black">R$ {remainingGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 ) : (
                   <div className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100 flex flex-col items-center gap-0.5">
@@ -1897,31 +1897,31 @@ function HomeScreen({
               <DollarSign className="w-3.5 h-3.5" />
               <span className="text-[10px] font-bold uppercase tracking-wider">Ganhos Brutos</span>
             </div>
-            <p className="text-base font-black text-emerald-700">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-base font-black text-emerald-700">R$ {stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
 
           <Card className="flex flex-col gap-1.5 p-4 border-rose-50 bg-rose-50/10">
-            <div className="flex items-center gap-1.5 text-rose-500">
+            <div className="flex items-center gap-1.5 text-rose-600">
               <Fuel className="w-3.5 h-3.5" />
               <span className="text-[10px] font-bold uppercase tracking-wider">Combustível</span>
             </div>
-            <p className="text-base font-black text-rose-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-base font-black text-rose-600">- R$ {stats.totalFuel.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
 
           <Card className="flex flex-col gap-1.5 p-4 border-amber-50 bg-amber-50/10">
-            <div className="flex items-center gap-1.5 text-amber-500">
+            <div className="flex items-center gap-1.5 text-rose-600">
               <span className="text-sm">🍽️</span>
               <span className="text-[10px] font-bold uppercase tracking-wider">Alimentação</span>
             </div>
-            <p className="text-base font-black text-amber-600">- R$ {stats.totalFood.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-base font-black text-rose-600">- R$ {stats.totalFood.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
 
           <Card className="flex flex-col gap-1.5 p-4 border-purple-50 bg-purple-50/10">
-            <div className="flex items-center gap-1.5 text-purple-500">
+            <div className="flex items-center gap-1.5 text-rose-600">
               <span className="text-sm">📦</span>
               <span className="text-[10px] font-bold uppercase tracking-wider">Outros</span>
             </div>
-            <p className="text-base font-black text-purple-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-base font-black text-rose-600">- R$ {stats.totalOther.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </Card>
 
           <Card className="flex flex-col gap-1.5 p-4 border-blue-50 bg-blue-50/10">
@@ -1933,14 +1933,14 @@ function HomeScreen({
           </Card>
 
           {stats.autoExpenses > 0 && (
-            <Card className="col-span-2 flex items-center justify-between p-4 border-orange-50 bg-orange-50/10">
-              <div className="flex items-center gap-2 text-orange-500">
+            <Card className="col-span-2 flex items-center justify-between p-4 border-rose-50 bg-rose-50/10">
+              <div className="flex items-center gap-2 text-rose-600">
                 <Wrench className="w-4 h-4" />
                 <span className="text-xs font-bold uppercase tracking-wider">
                   {user?.vehicleType === "Alugado" ? "Aluguel Proporcional" : "Custos Fixos"}
                 </span>
               </div>
-              <p className="text-base font-black text-orange-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-black text-rose-600">- R$ {stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </Card>
           )}
         </div>
@@ -1953,13 +1953,13 @@ function HomeScreen({
           <Card className="flex flex-col gap-1.5 p-4 border-blue-100 bg-blue-50/30">
             <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ KM</p>
             <p className="text-xl font-black text-blue-700">
-              R$ {stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ km</span>
+              R$ {stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ km</span>
             </p>
           </Card>
           <Card className="flex flex-col gap-1.5 p-4 border-blue-100 bg-blue-50/30">
             <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ Hora</p>
             <p className="text-xl font-black text-blue-700">
-              R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span>
+              R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span>
             </p>
           </Card>
         </div>
