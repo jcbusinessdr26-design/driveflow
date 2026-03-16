@@ -23,7 +23,8 @@ import {
   Download,
   Info,
   Eye,
-  EyeOff
+  EyeOff,
+  ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { jsPDF } from "jspdf";
@@ -183,6 +184,7 @@ interface Maintenance {
 }
 
 interface UserProfile {
+  email: string;
   name: string;
   avatar: string;
   platforms: Platform[];
@@ -439,7 +441,7 @@ export default function App() {
   const [screen, setScreen] = useState<"auth" | "setup" | "main">("auth");
   const [initialAuthView, setInitialAuthView] = useState<"login" | "signup" | "forgotPassword" | "updatePassword">("login");
   const [loading, setLoading] = useState(true);
-
+  const [userEmail, setUserEmail] = useState("");
   const [activeTab, setActiveTab] = useState<"home" | "add" | "maintenance" | "profile">("home");
 
   const [earnings, setEarnings] = useState<Earning[]>([]);
@@ -496,7 +498,9 @@ export default function App() {
           .single();
 
         if (profile) {
+          setUserEmail(session.user.email || "");
           setUser({
+            email: session.user.email || "",
             name: profile.name,
             avatar: profile.avatar,
             platforms: profile.platforms,
@@ -588,10 +592,13 @@ export default function App() {
         .single();
 
       if (!profile) {
+        setUserEmail(session.user.email || "");
         setScreen("setup");
         setLoading(false);
       } else {
+        setUserEmail(session.user.email || "");
         setUser({
+          email: session.user.email || "",
           name: profile.name,
           avatar: profile.avatar,
           platforms: profile.platforms,
@@ -840,7 +847,12 @@ export default function App() {
                 onPasswordUpdated={() => setInitialAuthView("login")} 
               />
             )}
-            {screen === "setup" && <SetupScreen onComplete={handleSetupComplete} />}
+            {screen === "setup" && (
+              <SetupScreen 
+                email={userEmail} 
+                onComplete={handleSetupComplete} 
+              />
+            )}
             {screen === "main" && (
               <motion.div
                 key="main"
@@ -894,6 +906,7 @@ export default function App() {
                       chartData={chartData}
                       globalAvgNetPerTrip={stats.globalAvgNetPerTrip}
                       earnings={filteredEarnings}
+                      maintenance={filteredMaintenance}
                       goal={user?.monthlyGoal || 0}
                       customRange={customRange}
                       setCustomRange={setCustomRange}
@@ -1085,15 +1098,16 @@ export default function App() {
                             license_plate: updated.licensePlate,
                             weekly_rent: updated.weeklyRent,
                             ipva: updated.ipva,
-                            fines: updated.fines
+                            fines: updated.fines,
+                            avg_consumption: updated.avgConsumption
                           })
                           .eq('id', session.user.id);
 
                         if (error) {
                           alert("Erro ao salvar perfil: " + error.message);
-                          throw error; // Let the screen know it failed
+                          throw error;
                         } else {
-                          setUser(updated);
+                          setUser({ ...updated, email: userEmail });
                         }
                       }}
                       maintenanceAlertsEnabled={maintenanceAlertsEnabled}
@@ -1252,7 +1266,7 @@ function AuthScreen({
               Digite e confirme sua nova senha abaixo.
             </p>
             <Input 
-              label="Nova Senha" 
+              label="Cadastrar Nova Senha" 
               type="password" 
               value={password} 
               onChange={setPassword} 
@@ -1261,10 +1275,10 @@ function AuthScreen({
               showPasswordToggle={true}
             />
             <Input 
-              label="Confirmar Nova Senha" 
+              label="Repetir Senha" 
               type="password" 
               value={confirmPassword} 
-              onChange={setConfirmPassword} 
+              onChange={setConfirmPassword}
               placeholder="••••••••" 
               theme="dark" 
               showPasswordToggle={true}
@@ -1333,7 +1347,7 @@ function AuthScreen({
   );
 }
 
-function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
+function SetupScreen({ email, onComplete }: { email: string; onComplete: (p: UserProfile) => void }) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
@@ -1532,6 +1546,7 @@ function SetupScreen({ onComplete }: { onComplete: (p: UserProfile) => void }) {
             <Button onClick={() => setStep(3)} variant="secondary" className="flex-1">Voltar</Button>
             <Button
               onClick={() => onComplete({
+                email,
                 name,
                 avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
                 platforms: selectedPlatforms,
@@ -1563,6 +1578,7 @@ function HomeScreen({
   filter,
   setFilter,
   earnings,
+  maintenance,
   goal,
   customRange,
   filterRange,
@@ -1584,6 +1600,7 @@ function HomeScreen({
   filter: FilterType;
   setFilter: (f: FilterType) => void;
   earnings: Earning[];
+  maintenance: Maintenance[];
   goal: number;
   customRange: { start: string; end: string };
   filterRange: { start: Date; end: Date };
@@ -1679,13 +1696,53 @@ function HomeScreen({
     doc.setFontSize(10);
     doc.text(`Ganhos Brutos: R$ ${stats.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 8);
     doc.text(`Custos Operacionais: R$ ${(stats.totalFuel + stats.totalFood + stats.totalOther).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 14);
-    doc.text(`Custos Fixos (Aluguel/IPVA): R$ ${stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 20);
+    doc.text(`Oficina / Manutenções: R$ ${stats.totalMaintenance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 20);
+    doc.text(`Custos Fixos (Aluguel/IPVA): R$ ${stats.autoExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 26);
     
     doc.setFontSize(12);
     const isPositive = stats.netProfit >= 0;
     if (isPositive) doc.setTextColor(16, 185, 129); // emerald-600
     else doc.setTextColor(244, 63, 94); // rose-600
-    doc.text(`LUCRO LÍQUIDO: R$ ${stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 30);
+    doc.text(`LUCRO LÍQUIDO: R$ ${stats.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY + 36);
+
+    // Productivity Section
+    const prodY = finalY + 50;
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text("Produtividade", 14, prodY);
+    
+    doc.setFontSize(10);
+    doc.text(`KM Rodados: ${stats.totalKm} km`, 14, prodY + 8);
+    doc.text(`Ganho p/ KM: R$ ${stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, prodY + 14);
+    doc.text(`Ganho p/ Hora: R$ ${stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, prodY + 20);
+    doc.text(`Viagens: ${stats.totalTrips}`, 14, prodY + 26);
+    doc.text(`Horas Trabalhadas: ${stats.totalHours} h`, 14, prodY + 32);
+
+    // Maintenance Table (if any)
+    if (maintenance.length > 0) {
+      doc.addPage();
+      doc.setFontSize(20);
+      doc.setTextColor(37, 99, 235);
+      doc.text("Relatório de Oficina / Manutenção", 14, 20);
+      
+      const maintHeaders = [["Data", "Tipo", "Serviço", "Valor", "Status"]];
+      const maintData = maintenance.map(m => [
+        format(parseLocalDate(m.date), 'dd/MM/yyyy'),
+        m.type,
+        m.service,
+        `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        m.status
+      ]);
+
+      (doc as any).autoTable({
+        startY: 30,
+        head: maintHeaders,
+        body: maintData,
+        theme: 'grid',
+        headStyles: { fillColor: [147, 51, 234], textColor: [255, 255, 255] }, // purple-600
+        styles: { fontSize: 8 },
+      });
+    }
 
     doc.save(`driverflow_relatorio_${filter}.pdf`);
   };
@@ -2692,7 +2749,10 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSection, setActiveSection] = useState<"none" | "platforms" | "goals" | "notifications" | "vehicle">("none");
+  const [activeSection, setActiveSection] = useState<"none" | "platforms" | "goals" | "notifications" | "vehicle" | "security">("none");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [name, setName] = useState(user?.name || "");
   const [avatar, setAvatar] = useState(user?.avatar || "");
   const [goal, setGoal] = useState(user?.monthlyGoal.toString() || "3000");
@@ -2941,6 +3001,83 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
     );
   }
 
+  if (activeSection === "security") {
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button onClick={() => setActiveSection("none")} className="p-2 bg-white rounded-2xl border border-zinc-200 shadow-sm"><ChevronLeft className="w-5 h-5" /></button>
+          <h2 className="text-xl font-bold tracking-tight">Segurança</h2>
+        </div>
+        
+        <div className="space-y-4">
+          <Input 
+            label="Senha Atual" 
+            type="password" 
+            value={currentPassword} 
+            onChange={setCurrentPassword} 
+            placeholder="••••••••" 
+            showPasswordToggle={true}
+          />
+          <Input 
+            label="Cadastrar Nova Senha" 
+            type="password" 
+            value={newPassword} 
+            onChange={setNewPassword} 
+            placeholder="••••••••" 
+            showPasswordToggle={true}
+          />
+          <Input 
+            label="Repetir Senha" 
+            type="password" 
+            value={confirmNewPassword} 
+            onChange={setConfirmNewPassword} 
+            placeholder="••••••••" 
+            showPasswordToggle={true}
+          />
+          
+          <Button 
+            disabled={isSaving || !currentPassword || !newPassword || !confirmNewPassword} 
+            onClick={async () => {
+              if (newPassword !== confirmNewPassword) {
+                alert("As novas senhas não coincidem.");
+                return;
+              }
+              setIsSaving(true);
+              try {
+                // First verify current password by attempting to sign in
+                const { error: signInError } = await supabase.auth.signInWithPassword({
+                  email: user?.email || "",
+                  password: currentPassword
+                });
+
+                if (signInError) {
+                  alert("Senha atual incorreta.");
+                  return;
+                }
+
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                if (error) throw error;
+                
+                alert("Senha alterada com sucesso!");
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmNewPassword("");
+                setActiveSection("none");
+              } catch (error: any) {
+                alert("Erro ao alterar senha: " + error.message);
+              } finally {
+                setIsSaving(false);
+              }
+            }} 
+            className="w-full mt-2"
+          >
+            {isSaving ? "Alterando..." : "Redefinir Senha"}
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col items-center gap-4">
@@ -3007,6 +3144,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
             <ProfileItem onClick={() => setActiveSection("vehicle")} icon={<Fuel className="w-4 h-4" />} label="Meu Veículo" />
             <ProfileItem onClick={() => setActiveSection("platforms")} icon={<CarFront className="w-4 h-4" />} label="Minhas Plataformas" />
             <ProfileItem onClick={() => setActiveSection("goals")} icon={<TrendingUp className="w-4 h-4" />} label="Minhas Metas" />
+            <ProfileItem onClick={() => setActiveSection("security")} icon={<ShieldCheck className="w-4 h-4" />} label="Segurança" />
             <ProfileItem onClick={() => setActiveSection("notifications")} icon={<Bell className="w-4 h-4" />} label="Notificações" />
           </Card>
         </div>
