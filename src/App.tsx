@@ -1823,39 +1823,7 @@ function HomeScreen({
         </motion.div>
       )}
 
-      {/* Main Stats */}
-      {(() => {
-        const displayProfit = stats.netProfit;
-        const isPositive = displayProfit >= 0;
-        return (
-          <Card className={cn(
-            "relative overflow-hidden text-white shadow-xl",
-            isPositive
-              ? "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 shadow-emerald-500/20"
-              : "bg-gradient-to-br from-rose-500 to-rose-600 border-rose-400 shadow-rose-500/20"
-          )}>
-            <div className={cn("absolute -right-10 -top-10 w-40 h-40 blur-3xl rounded-full", isPositive ? "bg-white/10" : "bg-white/10")} />
-            <div className="relative z-10">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className={cn("text-xs font-bold uppercase tracking-widest mb-1", isPositive ? "text-emerald-100" : "text-rose-100")}>
-                    Lucro Líquido
-                  </p>
-                  <h2 className="text-4xl font-bold tracking-tighter relative -left-1">
-                    R$ {displayProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </h2>
-                  <p className="text-[10px] mt-2 opacity-90 leading-tight pr-8">
-                    Já com combustível, alimentação, outros gastos e aluguel descontados.
-                  </p>
-                </div>
-                <div className="bg-white/20 p-2 rounded-xl flex-shrink-0">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            </div>
-          </Card>
-        );
-      })()}
+
 
       {/* 1️⃣ BLOCO PRINCIPAL — RESULTADO DO PERÍODO */}
       <Card className="p-6 bg-blue-600 border-none shadow-xl shadow-blue-500/20 text-white relative overflow-hidden">
