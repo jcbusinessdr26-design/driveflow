@@ -1144,6 +1144,7 @@ function AuthScreen({
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authView, setAuthView] = useState<"login" | "signup" | "forgotPassword" | "updatePassword">(initialView);
   const [loading, setLoading] = useState(false);
@@ -1172,11 +1173,25 @@ function AuthScreen({
         if (error) throw error;
         onLoginSuccess();
       } else if (authView === "forgotPassword") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin,
+        if (password !== confirmPassword) {
+          throw new Error("As novas senhas não coincidem.");
+        }
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: currentPassword,
         });
-        if (error) throw error;
-        setSuccessMessage("Link de recuperação enviado para seu e-mail.");
+        if (signInError) {
+          throw new Error("Senha atual incorreta ou usuário não encontrado.");
+        }
+        const { error: updateError } = await supabase.auth.updateUser({ password });
+        if (updateError) throw updateError;
+        setSuccessMessage("Senha redefinida com sucesso! Você já pode entrar.");
+        setPassword("");
+        setCurrentPassword("");
+        setConfirmPassword("");
+        setLoading(false);
+        setTimeout(() => setAuthView("login"), 2000);
+        return;
       } else if (authView === "updatePassword") {
         if (password !== confirmPassword) {
           throw new Error("As senhas não coincidem.");
@@ -1203,7 +1218,7 @@ function AuthScreen({
       exit={{ opacity: 0, y: -20 }}
       className="flex flex-col items-center justify-center min-h-screen p-8 bg-gradient-to-r from-blue-700 to-blue-500"
     >
-      <div className="w-[155px] h-[155px] rounded-3xl overflow-hidden shadow-2xl shadow-blue-900/40" style={{ marginBottom: '-15px' }}>
+      <div className="w-[155px] h-[155px] rounded-3xl overflow-hidden" style={{ marginBottom: '-15px' }}>
         <img src="/icon.png" alt="DriverFlow" className="w-full h-full object-cover" />
       </div>
       <h1 className="text-4xl font-bold mb-2 tracking-tighter text-center text-white">DriverFlow</h1>
@@ -1222,14 +1237,19 @@ function AuthScreen({
         )}
         
         {authView === "forgotPassword" && (
-          <div className="flex flex-col items-center gap-2 mb-2">
-            <ShieldCheck className="w-8 h-8 text-white/40" />
-            <h2 className="text-xl font-bold text-white tracking-tight">Redefinir Senha</h2>
+          <div className="space-y-4">
+            <div className="flex flex-col items-center gap-2 mb-2">
+              <ShieldCheck className="w-8 h-8 text-white/40" />
+              <h2 className="text-xl font-bold text-white tracking-tight">Redefinir Senha</h2>
+            </div>
+            <p className="text-white text-xs text-center font-medium bg-white/10 p-3 rounded-2xl border border-white/20">
+              Para sua segurança, informe seu e-mail e sua senha atual.
+            </p>
+            <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" />
+            <Input label="Senha Atual" type="password" value={currentPassword} onChange={setCurrentPassword} placeholder="••••••••" theme="dark" showPasswordToggle={true} />
+            <Input label="Cadastrar Nova Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" showPasswordToggle={true} />
+            <Input label="Repetir Senha" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" theme="dark" showPasswordToggle={true} />
           </div>
-        )}
-        
-        {authView !== "updatePassword" && (
-          <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" tooltip="Seu endereço de e-mail cadastrado." />
         )}
         
         {authView !== "forgotPassword" && authView !== "updatePassword" && (
@@ -1301,11 +1321,11 @@ function AuthScreen({
           onClick={handleAuth}
           className="w-full mt-2"
           variant="vibrant"
-          disabled={loading || (authView === "updatePassword" ? (!password || !confirmPassword) : (!email || (authView !== "forgotPassword" && !password)))}
+          disabled={loading || (authView === "forgotPassword" ? (!email || !currentPassword || !password || !confirmPassword) : authView === "updatePassword" ? (!password || !confirmPassword) : (!email || !password))}
         >
           {loading ? "Carregando..." : (
             authView === "signup" ? "Criar Conta" : 
-            authView === "forgotPassword" ? "Enviar link" : 
+            authView === "forgotPassword" ? "Redefinir Senha" : 
             authView === "updatePassword" ? "Redefinir Senha" : "Entrar"
           )}
         </Button>
@@ -1343,7 +1363,11 @@ function AuthScreen({
             {authView === "signup" ? "Já tem uma conta?" : "Não tem uma conta?"} {" "}
             <button
               onClick={() => {
-                setAuthView(authView === "signup" ? "login" : "signup");
+                if (authView === "signup") {
+                  setAuthView("login");
+                } else {
+                  window.location.href = "https://pay.cakto.com.br/p9ggdca_808146";
+                }
                 setError(null);
                 setSuccessMessage(null);
               }}
