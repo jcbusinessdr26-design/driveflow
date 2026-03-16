@@ -1847,24 +1847,54 @@ function HomeScreen({
         const metaProgress = Math.min(100, Math.max(0, (achievedProfit / currentGoal) * 100));
         const remainingGoal = Math.max(0, currentGoal - achievedProfit);
         
+        let dailyGoalNeeded = 0;
+        if (goal > 0 && stats.allNetProfit !== undefined) {
+          const remainingGoalTotal = goal - stats.allNetProfit;
+          const today = startOfDay(new Date());
+          const endOfMonthDate = endOfMonth(today);
+          if (endOfMonthDate >= today) {
+            const daysRemaining = differenceInCalendarDays(endOfMonthDate, today) + 1;
+            if (daysRemaining > 0 && remainingGoalTotal > 0) {
+              dailyGoalNeeded = remainingGoalTotal / daysRemaining;
+            }
+          }
+        }
+
         return (
           <Card className="p-4 space-y-3">
-            <div className="flex justify-between items-end">
+            <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  Meta {filter === 'dia' ? 'do Dia' : filter === 'semana' ? 'da Semana' : filter === 'mês' ? 'do Mês' : filter === 'trimestre' ? 'do Trimestre' : filter === 'semestre' ? 'do Semestre' : filter === 'anual' ? 'do Ano' : 'do Período'}: R$ {currentGoal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
-                </p>
+                <div className="flex flex-col gap-0.5 mb-2">
+                  <span className="text-[10px] font-black text-purple-600 uppercase tracking-[0.1em]">Meta Diária Necessária</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-bold text-white bg-purple-500/80 px-1.5 py-0.5 rounded-md uppercase tracking-wide">Lucro Líquido</span>
+                    <span className="text-[9px] font-medium text-zinc-400">hoje é {format(new Date(), 'dd/MM/yyyy')}</span>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-xl font-black text-purple-700 leading-none">
+                      R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[9px] font-bold text-purple-400 uppercase tracking-widest ml-1">por dia</span>
+                  </div>
+                </div>
+                
+                <div className="mt-2 pt-2 border-t border-zinc-100">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                    Progresso da {filter === 'dia' ? 'Meta do Dia' : filter === 'semana' ? 'Meta da Semana' : filter === 'mês' ? 'Meta do Mês' : filter === 'trimestre' ? 'Meta do Trimestre' : filter === 'semestre' ? 'Meta do Semestre' : filter === 'anual' ? 'Meta do Ano' : 'Meta do Período'}
+                  </p>
+                </div>
+                
                 {remainingGoal > 0 ? (
-                  <p className="text-xl font-black text-zinc-900 tracking-tight">
+                  <p className="text-lg font-black text-zinc-900 tracking-tight">
                     Atingido <span className="text-emerald-600">R$ {achievedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </p>
                 ) : (
-                  <p className="text-xl font-black text-emerald-600 tracking-tight">
+                  <p className="text-lg font-black text-emerald-600 tracking-tight">
                     Meta atingida 🎉
                   </p>
                 )}
               </div>
-              <TrendingUp className={cn("w-5 h-5 mb-1", remainingGoal > 0 ? "text-blue-500" : "text-emerald-500")} />
+              <TrendingUp className={cn("w-5 h-5", remainingGoal > 0 ? "text-purple-500" : "text-emerald-500")} />
             </div>
             
             <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider mb-1">
@@ -2010,30 +2040,6 @@ function HomeScreen({
                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Ganho real p/ Hora</p>
                 <p className="text-xl font-black text-blue-700">R$ {stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs font-bold text-blue-600/70 ml-1">/ h</span></p>
               </Card>
-              {dailyGoalNeeded > 0 && (
-                <Card className="col-span-2 p-5 border-purple-100 bg-purple-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2.5 bg-purple-100 rounded-2xl shrink-0">
-                      <TrendingUp className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-black text-purple-500 uppercase tracking-[0.1em]">Meta Diária Necessária</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] font-bold text-white bg-purple-500/80 px-1.5 py-0.5 rounded-md uppercase tracking-wide">Lucro Líquido</span>
-                          <span className="text-[9px] font-medium text-purple-400">hoje é {format(new Date(), 'dd/MM/yyyy')}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-2xl font-black text-purple-700 leading-none">
-                      R$ {dailyGoalNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mt-1">por dia</p>
-                  </div>
-                </Card>
-              )}
             </div>
           </div>
         );
