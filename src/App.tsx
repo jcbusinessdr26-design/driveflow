@@ -21,7 +21,9 @@ import {
   Bell,
   AlertTriangle,
   Download,
-  Info
+  Info,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { jsPDF } from "jspdf";
@@ -330,7 +332,8 @@ const Input = ({
   placeholder,
   prefix,
   theme = "light",
-  tooltip
+  tooltip,
+  showPasswordToggle
 }: {
   label?: string;
   type?: string;
@@ -340,8 +343,12 @@ const Input = ({
   prefix?: string;
   theme?: "light" | "dark";
   tooltip?: string;
+  showPasswordToggle?: boolean;
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+  const inputType = type === "password" && isPasswordVisible ? "text" : type;
 
   return (
     <div className="flex flex-col gap-1.5 w-full relative">
@@ -392,7 +399,7 @@ const Input = ({
       <div className="relative flex items-center">
         {prefix && <span className={cn("absolute left-4 font-medium", theme === "dark" ? "text-blue-200" : "text-zinc-400")}>{prefix}</span>}
         <input
-          type={type}
+          type={inputType}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -401,9 +408,22 @@ const Input = ({
             theme === "dark"
               ? "bg-white/10 border-white/20 text-white focus:border-white focus:ring-4 focus:ring-white/10 placeholder:text-blue-200"
               : "bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-blue-500 placeholder:text-zinc-400",
-            prefix && "pl-12"
+            prefix && "pl-12",
+            type === "password" && showPasswordToggle && "pr-12"
           )}
         />
+        {type === "password" && showPasswordToggle && (
+          <button
+            type="button"
+            onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+            className={cn(
+              "absolute right-4 p-1 rounded-lg transition-colors",
+              theme === "dark" ? "text-blue-200 hover:bg-white/10" : "text-zinc-400 hover:bg-zinc-100"
+            )}
+          >
+            {isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -431,6 +451,17 @@ export default function App() {
   const [customRange, setCustomRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [todayStr, setTodayStr] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const current = format(new Date(), "yyyy-MM-dd");
+      if (current !== todayStr) {
+        setTodayStr(current);
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [todayStr]);
 
   useEffect(() => {
     checkUser();
@@ -602,7 +633,7 @@ export default function App() {
         return { start: startOfDay(now), end: endOfDay(now) };
     }
     return { start, end };
-  }, [filter, customRange, selectedMonth, selectedYear]);
+  }, [filter, customRange, selectedMonth, selectedYear, todayStr]);
 
   // Filter Logic
   const filteredEarnings = useMemo(() => {
@@ -1108,7 +1139,16 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         
         {authView !== "forgotPassword" && (
           <>
-            <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" tooltip="Sua senha secreta de acesso." />
+            <Input 
+              label="Senha" 
+              type="password" 
+              value={password} 
+              onChange={setPassword} 
+              placeholder="••••••••" 
+              theme="dark" 
+              tooltip="Sua senha secreta de acesso." 
+              showPasswordToggle={true}
+            />
 
             <div className="flex items-center justify-between px-1 pb-1">
               <div className="flex items-center gap-2">
@@ -1128,19 +1168,6 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
                   Manter conectado
                 </span>
               </div>
-              
-              {authView === "login" && (
-                <button 
-                  onClick={() => {
-                    setAuthView("forgotPassword");
-                    setError(null);
-                    setSuccessMessage(null);
-                  }}
-                  className="text-[10px] font-black text-white uppercase tracking-widest hover:underline"
-                >
-                  Esqueci minha senha
-                </button>
-              )}
             </div>
           </>
         )}
@@ -1156,6 +1183,21 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
             authView === "forgotPassword" ? "Enviar link de recuperação" : "Entrar"
           )}
         </Button>
+
+        {authView === "login" && (
+          <div className="flex justify-center mt-2">
+            <button 
+              onClick={() => {
+                setAuthView("forgotPassword");
+                setError(null);
+                setSuccessMessage(null);
+              }}
+              className="text-[10px] font-black text-white uppercase tracking-widest hover:underline"
+            >
+              Esqueci minha senha
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 text-xs text-blue-100 text-center space-y-3">
