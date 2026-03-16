@@ -435,6 +435,7 @@ export default function App() {
   // State
   const [user, setUser] = useState<UserProfile | null>(null);
   const [screen, setScreen] = useState<"auth" | "setup" | "main">("auth");
+  const [initialAuthView, setInitialAuthView] = useState<"login" | "signup" | "forgotPassword" | "updatePassword">("login");
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"home" | "add" | "maintenance" | "profile">("home");
@@ -465,6 +466,15 @@ export default function App() {
 
   useEffect(() => {
     checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setInitialAuthView("updatePassword");
+        setScreen("auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkUser = async () => {
@@ -793,7 +803,13 @@ export default function App() {
           </motion.div>
         ) : (
           <>
-            {screen === "auth" && <AuthScreen onLoginSuccess={handleAuthSuccess} />}
+            {screen === "auth" && (
+              <AuthScreen 
+                initialView={initialAuthView} 
+                onLoginSuccess={handleAuthSuccess} 
+                onPasswordUpdated={() => setInitialAuthView("login")} 
+              />
+            )}
             {screen === "setup" && <SetupScreen onComplete={handleSetupComplete} />}
             {screen === "main" && (
               <motion.div
@@ -1067,10 +1083,19 @@ export default function App() {
 
 // --- Sub-Screens ---
 
-function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+function AuthScreen({ 
+  onLoginSuccess, 
+  initialView = "login", 
+  onPasswordUpdated 
+}: { 
+  onLoginSuccess: () => void;
+  initialView?: "login" | "signup" | "forgotPassword" | "updatePassword";
+  onPasswordUpdated?: () => void;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [authView, setAuthView] = useState<"login" | "signup" | "forgotPassword">("login");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [authView, setAuthView] = useState<"login" | "signup" | "forgotPassword" | "updatePassword">(initialView);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -1102,6 +1127,17 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         });
         if (error) throw error;
         setSuccessMessage("Link de recuperação enviado para seu e-mail.");
+      } else if (authView === "updatePassword") {
+        if (password !== confirmPassword) {
+          throw new Error("As senhas não coincidem.");
+        }
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setSuccessMessage("Senha alterada com sucesso! Você já pode entrar.");
+        setTimeout(() => {
+          setAuthView("login");
+          if (onPasswordUpdated) onPasswordUpdated();
+        }, 3000);
       }
     } catch (e: any) {
       setError(e.message);
@@ -1135,9 +1171,11 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
           </div>
         )}
         
-        <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" tooltip="Seu endereço de e-mail cadastrado." />
+        {authView !== "updatePassword" && (
+          <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" tooltip="Seu endereço de e-mail cadastrado." />
+        )}
         
-        {authView !== "forgotPassword" && (
+        {authView !== "forgotPassword" && authView !== "updatePassword" && (
           <>
             <Input 
               label="Senha" 
@@ -1172,15 +1210,42 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
           </>
         )}
 
+        {authView === "updatePassword" && (
+          <div className="space-y-4">
+            <p className="text-white text-xs text-center font-medium bg-white/10 p-3 rounded-2xl border border-white/20">
+              Digite e confirme sua nova senha abaixo.
+            </p>
+            <Input 
+              label="Nova Senha" 
+              type="password" 
+              value={password} 
+              onChange={setPassword} 
+              placeholder="••••••••" 
+              theme="dark" 
+              showPasswordToggle={true}
+            />
+            <Input 
+              label="Confirmar Nova Senha" 
+              type="password" 
+              value={confirmPassword} 
+              onChange={setConfirmPassword} 
+              placeholder="••••••••" 
+              theme="dark" 
+              showPasswordToggle={true}
+            />
+          </div>
+        )}
+
         <Button
           onClick={handleAuth}
           className="w-full text-blue-700 mt-2"
           variant="white"
-          disabled={loading || !email || (authView !== "forgotPassword" && !password)}
+          disabled={loading || (authView === "updatePassword" ? (!password || !confirmPassword) : (!email || (authView !== "forgotPassword" && !password)))}
         >
           {loading ? "Carregando..." : (
             authView === "signup" ? "Criar Conta" : 
-            authView === "forgotPassword" ? "Enviar link de recuperação" : "Entrar"
+            authView === "forgotPassword" ? "Enviar link" : 
+            authView === "updatePassword" ? "Definir Nova Senha" : "Entrar"
           )}
         </Button>
 
