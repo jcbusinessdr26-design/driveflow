@@ -1039,30 +1039,39 @@ export default function App() {
 function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [authView, setAuthView] = useState<"login" | "signup" | "forgotPassword">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(true);
 
   const handleAuth = async () => {
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
-      if (isSignUp) {
+      if (authView === "signup") {
         const { error } = await supabase.auth.signUp({
           email,
           password
         });
         if (error) throw error;
-      } else {
+        setSuccessMessage("Conta criada com sucesso! Verifique seu e-mail.");
+      } else if (authView === "login") {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password
         });
         if (error) throw error;
+        onLoginSuccess();
+      } else if (authView === "forgotPassword") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+        if (error) throw error;
+        setSuccessMessage("Link de recuperação enviado para seu e-mail.");
       }
-      onLoginSuccess();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1089,46 +1098,94 @@ function AuthScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
             {error}
           </div>
         )}
+        {successMessage && (
+          <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-white text-xs font-medium backdrop-blur-sm">
+            {successMessage}
+          </div>
+        )}
+        
         <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" tooltip="Seu endereço de e-mail cadastrado." />
-        <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" tooltip="Sua senha secreta de acesso." />
+        
+        {authView !== "forgotPassword" && (
+          <>
+            <Input label="Senha" type="password" value={password} onChange={setPassword} placeholder="••••••••" theme="dark" tooltip="Sua senha secreta de acesso." />
 
-        <div className="flex items-center gap-2 px-1 pb-1">
-          <button
-            onClick={() => setRememberMe(!rememberMe)}
-            className={cn(
-              "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all",
-              rememberMe ? "bg-white border-white" : "bg-white/10 border-white/20"
-            )}
-          >
-            {rememberMe && <Check className="w-3.5 h-3.5 text-blue-600" strokeWidth={4} />}
-          </button>
-          <span 
-            className="text-[10px] font-black text-blue-100 uppercase tracking-widest cursor-pointer select-none" 
-            onClick={() => setRememberMe(!rememberMe)}
-          >
-            Manter conectado
-          </span>
-        </div>
+            <div className="flex items-center justify-between px-1 pb-1">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className={cn(
+                    "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all",
+                    rememberMe ? "bg-white border-white" : "bg-white/10 border-white/20"
+                  )}
+                >
+                  {rememberMe && <Check className="w-3.5 h-3.5 text-blue-600" strokeWidth={4} />}
+                </button>
+                <span 
+                  className="text-[10px] font-black text-blue-100 uppercase tracking-widest cursor-pointer select-none" 
+                  onClick={() => setRememberMe(!rememberMe)}
+                >
+                  Manter conectado
+                </span>
+              </div>
+              
+              {authView === "login" && (
+                <button 
+                  onClick={() => {
+                    setAuthView("forgotPassword");
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="text-[10px] font-black text-white uppercase tracking-widest hover:underline"
+                >
+                  Esqueci minha senha
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         <Button
           onClick={handleAuth}
-          className="w-full text-blue-700"
+          className="w-full text-blue-700 mt-2"
           variant="white"
-          disabled={loading || !email || !password}
+          disabled={loading || !email || (authView !== "forgotPassword" && !password)}
         >
-          {loading ? "Carregando..." : (isSignUp ? "Criar Conta" : "Entrar")}
+          {loading ? "Carregando..." : (
+            authView === "signup" ? "Criar Conta" : 
+            authView === "forgotPassword" ? "Enviar link de recuperação" : "Entrar"
+          )}
         </Button>
       </div>
 
-      <p className="mt-8 text-xs text-blue-100 text-center">
-        {isSignUp ? "Já tem uma conta?" : "Não tem uma conta?"} {" "}
-        <button
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="text-white font-bold hover:underline transition-all"
-        >
-          {isSignUp ? "Entrar" : "Cadastre-se"}
-        </button>
-      </p>
+      <div className="mt-8 text-xs text-blue-100 text-center space-y-3">
+        {authView === "forgotPassword" ? (
+          <button
+            onClick={() => {
+              setAuthView("login");
+              setError(null);
+              setSuccessMessage(null);
+            }}
+            className="text-white font-bold hover:underline transition-all block w-full"
+          >
+            ← Voltar para o Login
+          </button>
+        ) : (
+          <p>
+            {authView === "signup" ? "Já tem uma conta?" : "Não tem uma conta?"} {" "}
+            <button
+              onClick={() => {
+                setAuthView(authView === "signup" ? "login" : "signup");
+                setError(null);
+                setSuccessMessage(null);
+              }}
+              className="text-white font-bold hover:underline transition-all"
+            >
+              {authView === "signup" ? "Entrar" : "Cadastre-se"}
+            </button>
+          </p>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -1951,7 +2008,7 @@ function HomeScreen({
           ) : (
             earnings.map(item_e => {
               const platforms = item_e.platformDetails || [];
-              const dailyRent = user?.vehicleType === "Alugado" ? parseLocalNumber(user.weeklyRent) / 7 : 0;
+              const dailyRent = user?.vehicleType === "Alugado" ? parseLocalNumber(user?.weeklyRent) / 7 : 0;
               const totalExpenses = item_e.fuelCost + (item_e.foodCost || 0) + (item_e.otherCost || 0) + dailyRent;
               const netProfit = item_e.totalEarned - totalExpenses;
 
@@ -2040,7 +2097,7 @@ function HomeScreen({
                           <div className="w-px h-6 bg-zinc-100" />
                           <div className="text-center">
                             <p className="text-[9px] text-zinc-400 uppercase font-bold">Aluguel</p>
-                            <p className="text-[11px] font-black text-rose-500">- R$ {(parseLocalNumber(user.weeklyRent) / 7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-[11px] font-black text-rose-500">- R$ {(parseLocalNumber(user?.weeklyRent) / 7).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                           </div>
                         </>
                       )}
