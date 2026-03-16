@@ -1254,6 +1254,7 @@ function AuthScreen({
         
         {authView !== "forgotPassword" && authView !== "updatePassword" && (
           <>
+            <Input label="E-mail" type="email" value={email} onChange={setEmail} placeholder="seu@email.com" theme="dark" />
             <Input 
               label="Senha" 
               type="password" 
