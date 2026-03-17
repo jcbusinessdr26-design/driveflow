@@ -774,6 +774,8 @@ export default function App() {
 
     const totalPromo = filteredEarnings.reduce((acc, curr) => acc + (curr.promoEarnings || 0), 0);
 
+    const kmPerHour = totalHours > 0 ? totalKm / totalHours : 0;
+
     return { 
       totalEarned, 
       totalFuel: variableCosts.fuel, 
@@ -790,6 +792,7 @@ export default function App() {
       autoExpensesDays, 
       gainPerKm, 
       gainPerHour, 
+      kmPerHour,
       avgNetPerTrip,
       globalAvgNetPerTrip,
       allNetProfit
@@ -1577,7 +1580,7 @@ function SetupScreen({ email, onComplete }: { email: string; onComplete: (p: Use
               <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do veículo próprio." />
               <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} tooltip="Valor total do IPVA do ano corrente." />
               <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} tooltip="Total de multas pendentes ou previstas." />
-              <Input label="Consumo Médio (km/L)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 12.5" tooltip="Consumo médio de combustível do seu veículo." />
+              <Input label="Rendimento Médio Desejado (km/h)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 25.0" tooltip="Sua meta de quilômetros por hora trabalhada." />
             </motion.div>
           )}
 
@@ -1754,8 +1757,9 @@ function HomeScreen({
     doc.text(`KM Rodados: ${stats.totalKm} km`, 14, prodY + 8);
     doc.text(`Ganho p/ KM: R$ ${stats.gainPerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, prodY + 14);
     doc.text(`Ganho p/ Hora: R$ ${stats.gainPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, prodY + 20);
-    doc.text(`Viagens: ${stats.totalTrips}`, 14, prodY + 26);
-    doc.text(`Horas Trabalhadas: ${stats.totalHours} h`, 14, prodY + 32);
+    doc.text(`Consumo Médio: ${stats.kmPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h`, 14, prodY + 26);
+    doc.text(`Viagens: ${stats.totalTrips}`, 14, prodY + 32);
+    doc.text(`Horas Trabalhadas: ${stats.totalHours} h`, 14, prodY + 38);
 
     // Maintenance Table (if any)
     if (maintenance.length > 0) {
@@ -2090,7 +2094,7 @@ function HomeScreen({
           <Card className="flex flex-col gap-1.5 p-4 border-amber-100 bg-amber-50/30">
             <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Consumo Médio</p>
             <p className="text-xl font-black text-amber-700">
-              {user?.avgConsumption || '0'} <span className="text-xs font-bold text-amber-600/70 ml-1">km/L</span>
+              {stats.kmPerHour.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <span className="text-xs font-bold text-amber-600/70 ml-1">km/h</span>
             </p>
           </Card>
         </div>
@@ -2966,7 +2970,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
           {vehicleType === "Alugado" && (
             <div className="space-y-4">
               <Input label="Valor do Aluguel Semanal" type="number" prefix="R$" value={weeklyRent} onChange={setWeeklyRent} tooltip="Valor que você paga por semana pelo aluguel do carro." />
-              <Input label="Consumo Médio (km/L)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 12.5" tooltip="Consumo médio de combustível do seu veículo." />
+              <Input label="Rendimento Médio Desejado (km/h)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 25.0" tooltip="Sua meta de quilômetros por hora trabalhada." />
             </div>
           )}
 
@@ -2976,7 +2980,7 @@ function ProfileScreen({ user, onLogout, onUpdate, maintenanceAlertsEnabled, set
               <Input label="Placa" value={licensePlate} onChange={setLicensePlate} placeholder="ABC-1234" tooltip="Número da placa do veículo próprio." />
               <Input label="IPVA Anual" type="number" prefix="R$" value={ipva} onChange={setIpva} tooltip="Valor total do IPVA do ano corrente." />
               <Input label="Multas" type="number" prefix="R$" value={fines} onChange={setFines} tooltip="Total de multas pendentes ou previstas." />
-              <Input label="Consumo Médio (km/L)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 12.5" tooltip="Consumo médio de combustível do seu veículo." />
+              <Input label="Rendimento Médio Desejado (km/h)" type="number" value={avgConsumption} onChange={setAvgConsumption} placeholder="Ex: 25.0" tooltip="Sua meta de quilômetros por hora trabalhada." />
             </div>
           )}
 
